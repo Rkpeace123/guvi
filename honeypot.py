@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration from .env
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
-API_SECRET_KEY = os.getenv('API_SECRET_KEY') or secrets.token_urlsafe(32)
+API_SECRET_KEY = os.getenv('API_SECRET_KEY', 'W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M')
 NGROK_AUTH_TOKEN = os.getenv('NGROK_AUTH_TOKEN')
 GUVI_CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 

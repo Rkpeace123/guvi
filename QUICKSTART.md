@@ -22,11 +22,10 @@ Open `.env` and paste your Groq API key:
 
 ```env
 GROQ_API_KEY=gsk_your_key_here
-API_SECRET_KEY=
-NGROK_AUTH_TOKEN=
+API_SECRET_KEY=W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M
 ```
 
-(API_SECRET_KEY will be auto-generated if empty)
+(API_SECRET_KEY is already set to: W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M)
 
 ## Step 4: Run! (30 seconds)
 
@@ -57,8 +56,8 @@ You'll see:
 Open another terminal and test:
 
 ```bash
-# Get your API key from the output above
-export API_KEY="your_api_secret_key_from_output"
+# Get the fixed API key
+export API_KEY="W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M"
 
 # Test the API
 curl -X POST http://localhost:8000/api/message \

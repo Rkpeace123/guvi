@@ -80,7 +80,7 @@ The API will start on `http://localhost:8000`
 ```bash
 curl -X POST http://localhost:8000/api/message \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_SECRET_KEY" \
+  -H "x-api-key: W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M" \
   -d '{
     "sessionId": "test-session-1",
     "message": {

@@ -70,8 +70,9 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 ### 2. Auto-generate API Secret Key
 ```python
-API_SECRET_KEY = os.getenv('API_SECRET_KEY') or secrets.token_urlsafe(32)
+API_SECRET_KEY = os.getenv('API_SECRET_KEY', 'W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M')
 ```
+Uses a fixed API key for consistency.
 
 ### 3. Graceful Fallback for Missing Keys
 - If no Groq API key → Uses rule-based responses

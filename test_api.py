@@ -12,7 +12,7 @@ load_dotenv()
 
 # Configuration
 BASE_URL = "http://localhost:8000"
-API_KEY = os.getenv('API_SECRET_KEY', 'test-key')
+API_KEY = "W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M"
 
 def test_health():
     """Test health endpoint"""

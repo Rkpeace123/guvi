@@ -29,8 +29,9 @@ Welcome! Your complete AI-powered scam detection system is ready.
    Open .env in any text editor and paste your key:
    
    GROQ_API_KEY=gsk_your_key_here
+   API_SECRET_KEY=W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M
    
-   (Leave other fields empty - they auto-generate)
+   (API_SECRET_KEY is fixed: W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M)
 
 4. RUN THE HONEYPOT:
    
