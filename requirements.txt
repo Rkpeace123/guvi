@@ -7,7 +7,7 @@ python-dotenv==1.0.1
 
 # AI/ML Models
 transformers==4.36.2
-torch==2.1.2
+torch==2.10.0
 accelerate==0.25.0
 sentencepiece==0.1.99
 spacy==3.7.2
