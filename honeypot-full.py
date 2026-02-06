@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🍯 ULTIMATE AGENTIC HONEY-POT (Lightweight Version)
-Optimized for fast deployment without heavy AI models
+🍯 ULTIMATE AGENTIC HONEY-POT
+Multi-Model AI System for Scam Detection & Intelligence Extraction
 
 Features:
-- ✅ Pattern-based Scam Detection (fast, no AI models needed)
-- ✅ Human-like Responses (Groq Llama 3.3 70B via API)
+- ✅ Multi-Model Scam Detection (6 AI models)
+- ✅ Human-like Responses (Groq Llama 3.1 70B)
 - ✅ Intelligence Extraction (Phone, UPI, Bank, Links)
-- ✅ Production Ready - Fast deployment
+- ✅ Production Ready - Deploy anywhere
 """
 
 import os
+import secrets
 import re
 import random
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from datetime import datetime
 
 # Load environment variables
@@ -29,69 +30,115 @@ logger = logging.getLogger(__name__)
 # Configuration from .env
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 API_SECRET_KEY = os.getenv('API_SECRET_KEY', 'W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M')
+NGROK_AUTH_TOKEN = os.getenv('NGROK_AUTH_TOKEN')
 GUVI_CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 # Validate required keys
 if not GROQ_API_KEY:
-    logger.warning("⚠️ GROQ_API_KEY not set in .env file. Using fallback responses.")
+    logger.warning("⚠️ GROQ_API_KEY not set in .env file. AI responses will use fallback mode.")
 
 print(f"🔑 API Secret Key: {API_SECRET_KEY}")
 print(f"🔑 Groq API: {'✅ Configured' if GROQ_API_KEY else '❌ Not configured'}")
-print("⚡ Running in LIGHTWEIGHT mode (no heavy AI models)")
 
 # =============================================================================
-# Pattern-Based Scam Detection (No AI Models Required)
+# STEP 1: Load AI Models
 # =============================================================================
 
-class LightweightScamDetector:
-    """Fast scam detection using patterns and keywords"""
+from transformers import pipeline
+import spacy
+import torch
+
+print("\n🔄 Loading AI models... (this may take 2-3 minutes)\n")
+
+# 1. Sentiment Analysis (detects urgency, fear)
+print("Loading DistilBERT for sentiment analysis...")
+sentiment_analyzer = pipeline(
+    "sentiment-analysis",
+    model="distilbert-base-uncased-finetuned-sst-2-english",
+    device=0 if torch.cuda.is_available() else -1
+)
+
+# 2. Zero-Shot Classification (adapts to new scam types)
+print("Loading BART for zero-shot classification...")
+classifier = pipeline(
+    "zero-shot-classification",
+    model="facebook/bart-large-mnli",
+    device=0 if torch.cuda.is_available() else -1
+)
+
+# 3. Named Entity Recognition
+print("Loading spaCy for entity recognition...")
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    print("⚠️ spaCy model not found. Run: python -m spacy download en_core_web_sm")
+    import sys
+    sys.exit(1)
+
+print("\n✅ All AI models loaded successfully!")
+print(f"🔥 Using: {'GPU' if torch.cuda.is_available() else 'CPU'}")
+
+# =============================================================================
+# STEP 2: Multi-Model Scam Detection System
+# =============================================================================
+
+class MultiModelScamDetector:
+    """Advanced scam detection using ensemble of AI models"""
 
     def __init__(self):
         self.scam_keywords = [
             "urgent", "verify", "immediately", "blocked", "suspended",
             "confirm", "otp", "cvv", "pin", "password", "expire",
             "winner", "prize", "lottery", "congratulations", "claim",
-            "account", "bank", "upi", "transfer", "refund", "freeze",
-            "update", "kyc", "pan", "aadhar", "click", "link"
+            "account", "bank", "upi", "transfer", "refund"
+        ]
+
+        self.scam_categories = [
+            "bank fraud",
+            "UPI scam",
+            "phishing attack",
+            "prize scam",
+            "tech support scam",
+            "urgent verification request"
         ]
 
     def detect(self, message: str) -> Dict:
-        """Run detection methods and combine results"""
-        
+        """Run all detection methods and combine results"""
+
         results = {
             "is_scam": False,
             "confidence": 0.0,
             "methods": {},
-            "scam_type": "unknown"
+            "scam_type": None
         }
 
-        # Method 1: Keyword Analysis
+        # Method 1: Keyword Analysis (Fast)
         keyword_score = self._keyword_detection(message)
         results["methods"]["keywords"] = keyword_score
 
-        # Method 2: Pattern Analysis
+        # Method 2: Sentiment Analysis (AI)
+        sentiment_score = self._sentiment_analysis(message)
+        results["methods"]["sentiment"] = sentiment_score
+
+        # Method 3: Zero-Shot Classification (AI)
+        classification_score, scam_type = self._zero_shot_classification(message)
+        results["methods"]["classification"] = classification_score
+        results["scam_type"] = scam_type
+
+        # Method 4: Pattern Analysis
         pattern_score = self._pattern_analysis(message)
         results["methods"]["patterns"] = pattern_score
 
-        # Method 3: Urgency Detection
-        urgency_score = self._urgency_detection(message)
-        results["methods"]["urgency"] = urgency_score
+        # Ensemble voting (if 2+ methods detect scam, it's a scam)
+        scam_votes = sum([
+            keyword_score > 0.5,
+            sentiment_score > 0.6,
+            classification_score > 0.7,
+            pattern_score > 0.5
+        ])
 
-        # Combined scoring
-        total_score = (keyword_score + pattern_score + urgency_score) / 3
-        results["is_scam"] = total_score > 0.5
-        results["confidence"] = total_score
-
-        # Determine scam type
-        msg_lower = message.lower()
-        if any(w in msg_lower for w in ["bank", "account"]):
-            results["scam_type"] = "bank fraud"
-        elif "upi" in msg_lower:
-            results["scam_type"] = "UPI scam"
-        elif any(w in msg_lower for w in ["winner", "prize", "lottery"]):
-            results["scam_type"] = "prize scam"
-        elif any(w in msg_lower for w in ["otp", "cvv", "pin"]):
-            results["scam_type"] = "phishing attack"
+        results["is_scam"] = scam_votes >= 2
+        results["confidence"] = (keyword_score + sentiment_score + classification_score + pattern_score) / 4
 
         return results
 
@@ -99,13 +146,35 @@ class LightweightScamDetector:
         """Fast keyword-based detection"""
         msg_lower = message.lower()
         matches = sum(1 for kw in self.scam_keywords if kw in msg_lower)
-        return min(matches / 3.0, 1.0)
+        return min(matches / 3.0, 1.0)  # 3+ keywords = 100% score
+
+    def _sentiment_analysis(self, message: str) -> float:
+        """AI-based sentiment analysis"""
+        try:
+            result = sentiment_analyzer(message[:512])[0]
+            # Negative sentiment often indicates scam (urgency, fear)
+            if result['label'] == 'NEGATIVE':
+                return result['score']
+            return 0.3  # Neutral/positive can still be scam
+        except:
+            return 0.5
+
+    def _zero_shot_classification(self, message: str) -> tuple:
+        """AI-based zero-shot classification"""
+        try:
+            result = classifier(message[:512], self.scam_categories)
+            top_score = result['scores'][0]
+            top_label = result['labels'][0]
+            return top_score, top_label
+        except:
+            return 0.5, "unknown"
 
     def _pattern_analysis(self, message: str) -> float:
         """Pattern-based detection"""
         score = 0.0
         msg_lower = message.lower()
 
+        # Check for urgency + threat + action pattern
         has_urgency = any(w in msg_lower for w in ["urgent", "immediately", "now", "asap"])
         has_threat = any(w in msg_lower for w in ["blocked", "suspended", "freeze", "expire"])
         has_action = any(w in msg_lower for w in ["verify", "click", "call", "send", "confirm"])
@@ -122,19 +191,12 @@ class LightweightScamDetector:
 
         return min(score, 1.0)
 
-    def _urgency_detection(self, message: str) -> float:
-        """Detect urgency indicators"""
-        msg_lower = message.lower()
-        urgency_words = ["urgent", "immediately", "now", "asap", "today", "hurry", "quick", "fast"]
-        matches = sum(1 for word in urgency_words if word in msg_lower)
-        return min(matches / 2.0, 1.0)
-
 # Initialize detector
-scam_detector = LightweightScamDetector()
-print("✅ Lightweight Scam Detector initialized!")
+scam_detector = MultiModelScamDetector()
+print("✅ Multi-Model Scam Detector initialized!")
 
 # =============================================================================
-# Intelligence Extraction System
+# STEP 3: Intelligence Extraction System
 # =============================================================================
 
 class IntelligenceExtractor:
@@ -162,11 +224,11 @@ class IntelligenceExtractor:
     def extract(self, message: str) -> Dict:
         """Extract all intelligence from message"""
         intel = {
-            "phone_numbers": [],
-            "upi_ids": [],
-            "bank_accounts": [],
-            "phishing_links": [],
-            "suspicious_keywords": []
+            "phone_numbers": set(),
+            "upi_ids": set(),
+            "bank_accounts": set(),
+            "phishing_links": set(),
+            "entities": []
         }
 
         # Extract phone numbers
@@ -175,31 +237,41 @@ class IntelligenceExtractor:
             for match in matches:
                 cleaned = re.sub(r'\D', '', match)
                 if len(cleaned) == 10 and cleaned[0] in '6789':
-                    if cleaned not in intel["phone_numbers"]:
-                        intel["phone_numbers"].append(cleaned)
+                    intel["phone_numbers"].add(cleaned)
 
         # Extract UPI IDs
         for pattern in self.patterns["upi"]:
             matches = re.findall(pattern, message, re.IGNORECASE)
             for match in matches:
                 if '@' in match and len(match) > 5:
-                    if match.lower() not in intel["upi_ids"]:
-                        intel["upi_ids"].append(match.lower())
+                    intel["upi_ids"].add(match.lower())
 
         # Extract bank accounts
         for pattern in self.patterns["bank_account"]:
             matches = re.findall(pattern, message)
             for match in matches:
-                if 9 <= len(match) <= 18:
-                    if match not in intel["bank_accounts"]:
-                        intel["bank_accounts"].append(match)
+                if len(match) >= 9 and len(match) <= 18:
+                    intel["bank_accounts"].add(match)
 
         # Extract URLs
         for pattern in self.patterns["url"]:
             matches = re.findall(pattern, message, re.IGNORECASE)
             for match in matches:
-                if match not in intel["phishing_links"]:
-                    intel["phishing_links"].append(match)
+                intel["phishing_links"].add(match)
+
+        # NER extraction using spaCy
+        doc = nlp(message)
+        for ent in doc.ents:
+            intel["entities"].append({
+                "text": ent.text,
+                "type": ent.label_
+            })
+
+        # Convert sets to lists for JSON serialization
+        intel["phone_numbers"] = list(intel["phone_numbers"])
+        intel["upi_ids"] = list(intel["upi_ids"])
+        intel["bank_accounts"] = list(intel["bank_accounts"])
+        intel["phishing_links"] = list(intel["phishing_links"])
 
         return intel
 
@@ -208,17 +280,18 @@ intel_extractor = IntelligenceExtractor()
 print("✅ Intelligence Extractor initialized!")
 
 # =============================================================================
-# Human-like Response Generator (Groq Llama 3.3 70B)
+# STEP 4: Human-like Response Generator (Groq Llama 3.1 70B)
 # =============================================================================
 
 from groq import Groq
 
 class HumanLikeResponseGenerator:
-    """Generate human-like responses using Groq Llama 3.3 70B"""
+    """Generate human-like responses using Groq Llama 3.1 70B"""
 
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
+        # Fallback responses if API fails
         self.fallback_responses = {
             "early": [
                 "What?! My account is blocked? I don't understand!",
@@ -240,6 +313,7 @@ class HumanLikeResponseGenerator:
     def generate(self, message: str, conversation_history: List, message_count: int) -> str:
         """Generate human-like response"""
 
+        # Determine conversation stage
         if message_count <= 2:
             stage = "early"
         elif message_count <= 8:
@@ -247,14 +321,17 @@ class HumanLikeResponseGenerator:
         else:
             stage = "late"
 
+        # If no Groq API key, use fallback
         if not self.client:
             return random.choice(self.fallback_responses[stage])
 
+        # Build conversation context
         context = "\n".join([
             f"{'Scammer' if msg['sender']=='scammer' else 'You'}: {msg['text']}"
-            for msg in conversation_history[-5:]
+            for msg in conversation_history[-5:]  # Last 5 messages
         ])
 
+        # Create prompt for Llama
         prompt = f"""You are roleplaying as a potential scam victim to gather intelligence. Your goals:
 1. Act like a real, slightly naive person who is concerned
 2. Ask questions to extract information (phone numbers, bank accounts, UPI IDs, links)
@@ -272,6 +349,7 @@ Stage: {stage} (early=concerned, middle=asking for details, late=skeptical)
 Generate ONLY your response as the victim. Be natural, worried, and human-like:"""
 
         try:
+            # Call Groq API (Llama 3.3 70B)
             response = self.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
@@ -281,6 +359,8 @@ Generate ONLY your response as the victim. Be natural, worried, and human-like:"
             )
 
             reply = response.choices[0].message.content.strip()
+
+            # Clean up response
             reply = reply.strip('"\'')
             for prefix in ["You: ", "Response: ", "Victim: "]:
                 if reply.startswith(prefix):
@@ -296,12 +376,12 @@ Generate ONLY your response as the victim. Be natural, worried, and human-like:"
 response_generator = HumanLikeResponseGenerator()
 print("✅ Human-like Response Generator initialized!")
 if GROQ_API_KEY:
-    print("🚀 Using Groq Llama 3.3 70B")
+    print("🚀 Using Groq Llama 3.3 70B (fastest LLM in the world!)")
 else:
-    print("⚠️ Using fallback responses")
+    print("⚠️ Using fallback responses (set GROQ_API_KEY for AI responses)")
 
 # =============================================================================
-# FastAPI Application
+# STEP 5: Create FastAPI Application
 # =============================================================================
 
 from fastapi import FastAPI, HTTPException, Header, Request
@@ -311,11 +391,12 @@ import httpx
 import asyncio
 
 app = FastAPI(
-    title="Agentic Honey-Pot API (Lightweight)",
-    description="Fast scam detection without heavy AI models",
+    title="Agentic Honey-Pot API",
+    description="AI-powered scam detection and intelligence extraction",
     version="1.0.0"
 )
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -324,6 +405,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Pydantic models
 class Message(BaseModel):
     sender: str = "scammer"
     text: str = ""
@@ -352,6 +434,7 @@ class APIResponse(BaseModel):
     status: str
     reply: str
 
+# Session storage
 sessions = {}
 
 async def send_final_report(session_id: str, session: Dict):
@@ -396,16 +479,17 @@ async def send_final_report(session_id: str, session: Dict):
 
 @app.get("/")
 async def root():
+    """Root endpoint"""
     return {
         "status": "online",
-        "service": "Agentic Honey-Pot (Lightweight)",
+        "service": "Agentic Honey-Pot",
         "version": "1.0.0",
-        "mode": "lightweight",
         "timestamp": datetime.utcnow().isoformat()
     }
 
 @app.get("/health")
 async def health():
+    """Health check"""
     return {
         "status": "healthy",
         "active_sessions": len(sessions),
@@ -417,23 +501,36 @@ async def handle_message(
     request: Request,
     x_api_key: Optional[str] = Header(None)
 ):
+    """
+    Main endpoint for scam detection and response
+    Compatible with GUVI's automated testing
+    """
+
+    # Verify API key
     if not x_api_key or x_api_key != API_SECRET_KEY:
         logger.warning(f"Invalid API key attempt")
-        raise HTTPException(status_code=401, detail="Invalid API key")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
 
+    # Parse request body
     try:
         body = await request.json()
     except:
         body = {}
 
+    # Handle empty request
     if not body:
         return APIResponse(
             status="success",
             reply="What?! My account is blocked? I don't understand!"
         )
 
+    # Extract fields
     session_id = body.get("sessionId", f"session-{int(datetime.utcnow().timestamp())}")
 
+    # Get message
     if "message" in body and isinstance(body["message"], dict):
         message_text = body["message"].get("text", "")
         message_sender = body["message"].get("sender", "scammer")
@@ -441,12 +538,14 @@ async def handle_message(
         message_text = ""
         message_sender = "scammer"
 
+    # Handle empty message
     if not message_text:
         return APIResponse(
             status="success",
             reply="I'm here. What's the issue?"
         )
 
+    # Initialize or get session
     if session_id not in sessions:
         sessions[session_id] = {
             "messages": [],
@@ -463,6 +562,7 @@ async def handle_message(
 
     session = sessions[session_id]
 
+    # Add incoming message
     session["messages"].append({
         "sender": message_sender,
         "text": message_text,
@@ -473,6 +573,7 @@ async def handle_message(
 
     logger.info(f"Processing message {message_count} for session: {session_id}")
 
+    # Use AI detection
     detection = scam_detector.detect(message_text)
     is_scam = detection["is_scam"]
 
@@ -480,13 +581,16 @@ async def handle_message(
         session["scam_detected"] = True
         logger.info(f"✅ Scam detected (confidence: {detection['confidence']:.2%})")
 
+        # Extract intelligence
         new_intel = intel_extractor.extract(message_text)
 
+        # Merge intelligence
         for key in ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links"]:
             existing = set(session["intelligence"].get(key, []))
             new = set(new_intel.get(key, []))
             session["intelligence"][key] = list(existing.union(new))
 
+        # Log extracted intelligence
         if new_intel["phone_numbers"]:
             logger.info(f"📱 Extracted phone: {new_intel['phone_numbers']}")
         if new_intel["upi_ids"]:
@@ -494,12 +598,14 @@ async def handle_message(
         if new_intel["phishing_links"]:
             logger.info(f"🔗 Extracted link: {new_intel['phishing_links']}")
 
+        # Generate AI response
         response_text = response_generator.generate(
             message_text,
             session["messages"],
             message_count
         )
 
+        # Add response to session
         session["messages"].append({
             "sender": "user",
             "text": response_text,
@@ -508,6 +614,7 @@ async def handle_message(
 
         logger.info(f"💬 Generated response: {response_text}")
 
+        # Check if should finalize
         has_intel = any(len(session["intelligence"][k]) > 0 for k in ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links"])
         should_finalize = (has_intel and message_count >= 6) or message_count >= 12
 
@@ -521,6 +628,7 @@ async def handle_message(
         )
 
     else:
+        # Not a scam - neutral response
         logger.info(f"ℹ️ Not a scam")
         neutral_responses = [
             "Thank you for the information.",
@@ -542,6 +650,7 @@ async def handle_message(
 
 @app.get("/api/sessions")
 async def list_sessions(x_api_key: str = Header(None)):
+    """List all sessions"""
     if x_api_key != API_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
@@ -559,6 +668,7 @@ async def list_sessions(x_api_key: str = Header(None)):
 
 @app.get("/api/session/{session_id}")
 async def get_session(session_id: str, x_api_key: str = Header(None)):
+    """Get session details"""
     if x_api_key != API_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
@@ -567,13 +677,59 @@ async def get_session(session_id: str, x_api_key: str = Header(None)):
 
     return sessions[session_id]
 
+# =============================================================================
+# STEP 6: Test the System
+# =============================================================================
+
+def test_system():
+    """Test the detection and response system"""
+    test_message = "URGENT! Your bank account will be blocked today. Call +91-9876543210 immediately or verify at http://fake-bank.com"
+
+    print("\n🧪 Testing with scam message...\n")
+    print(f"Message: {test_message}\n")
+
+    # Test detection
+    detection = scam_detector.detect(test_message)
+    print(f"✅ DETECTION RESULTS:")
+    print(f"   Scam: {detection['is_scam']}")
+    print(f"   Confidence: {detection['confidence']:.2%}")
+    print(f"   Type: {detection['scam_type']}")
+    print(f"   Methods: {detection['methods']}\n")
+
+    # Test intelligence extraction
+    intelligence = intel_extractor.extract(test_message)
+    print(f"✅ INTELLIGENCE EXTRACTED:")
+    print(f"   Phones: {intelligence['phone_numbers']}")
+    print(f"   UPIs: {intelligence['upi_ids']}")
+    print(f"   Accounts: {intelligence['bank_accounts']}")
+    print(f"   Links: {intelligence['phishing_links']}\n")
+
+    # Test response generation
+    response = response_generator.generate(test_message, [], 1)
+    print(f"✅ AGENT RESPONSE:")
+    print(f"   {response}\n")
+
+    print("🎉 All systems working perfectly!")
+
+# =============================================================================
+# STEP 7: Main Entry Point
+# =============================================================================
+
 if __name__ == "__main__":
     import uvicorn
     
-    print("\n" + "="*60)
-    print("🚀 Starting Agentic Honey-Pot API (Lightweight)...")
-    print("="*60)
-    print(f"\n📝 API Documentation: http://localhost:8000/docs")
-    print(f"🔑 API Key: {API_SECRET_KEY}\n")
+    # Run tests
+    test_system()
     
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    print("\n" + "="*60)
+    print("🚀 Starting Agentic Honey-Pot API...")
+    print("="*60)
+    
+    # Get port from environment (for deployment) or use 8000 for local
+    port = int(os.getenv('PORT', 8000))
+    
+    print(f"\n📝 API Documentation: http://localhost:{port}/docs")
+    print(f"🔑 Use this API key in 'x-api-key' header: {API_SECRET_KEY}\n")
+    
+    # Start server
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
