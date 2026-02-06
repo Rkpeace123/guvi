@@ -724,8 +724,12 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("🚀 Starting Agentic Honey-Pot API...")
     print("="*60)
-    print(f"\n📝 API Documentation: http://localhost:8000/docs")
+    
+    # Get port from environment (for deployment) or use 8000 for local
+    port = int(os.getenv('PORT', 8000))
+    
+    print(f"\n📝 API Documentation: http://localhost:{port}/docs")
     print(f"🔑 Use this API key in 'x-api-key' header: {API_SECRET_KEY}\n")
     
     # Start server
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

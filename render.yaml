@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: agentic-honeypot
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
+    startCommand: uvicorn honeypot:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: API_SECRET_KEY
+        value: W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M
+      - key: PYTHON_VERSION
+        value: 3.11.0
