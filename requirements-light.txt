@@ -1,0 +1,16 @@
+# Lightweight version for deployment (no heavy AI models)
+# Use this if you want faster deploys and will use fallback responses
+
+# Core API Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+httpx==0.27.2
+python-dotenv==1.0.1
+
+# Groq LLM (lightweight, API-based)
+groq>=0.4.0
+
+# Utilities
+phonenumbers>=8.13.0
+validators>=0.22.0
