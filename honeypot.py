@@ -44,90 +44,233 @@ print("⚡ Running in LIGHTWEIGHT mode (no heavy AI models)")
 # =============================================================================
 
 class LightweightScamDetector:
-    """Fast scam detection using patterns and keywords"""
+    """Advanced scam detection with multi-layered analysis"""
 
     def __init__(self):
-        self.scam_keywords = [
-            "urgent", "verify", "immediately", "blocked", "suspended",
-            "confirm", "otp", "cvv", "pin", "password", "expire",
-            "winner", "prize", "lottery", "congratulations", "claim",
-            "account", "bank", "upi", "transfer", "refund", "freeze",
-            "update", "kyc", "pan", "aadhar", "click", "link"
+        # Expanded keyword database with weights
+        self.scam_keywords = {
+            # High urgency (weight: 3)
+            "urgent": 3, "immediately": 3, "now": 2, "asap": 3, "today": 2,
+            "hurry": 3, "quick": 2, "fast": 2, "expire": 3, "expires": 3,
+            
+            # Threats (weight: 4)
+            "blocked": 4, "suspended": 4, "freeze": 4, "locked": 4,
+            "terminated": 4, "cancelled": 4, "deactivated": 4,
+            
+            # Actions (weight: 2)
+            "verify": 2, "confirm": 2, "update": 2, "click": 3,
+            "call": 2, "send": 2, "provide": 2, "share": 3,
+            
+            # Financial (weight: 3)
+            "account": 2, "bank": 2, "upi": 3, "payment": 2,
+            "money": 2, "transfer": 3, "refund": 3, "transaction": 2,
+            
+            # Sensitive data (weight: 5)
+            "otp": 5, "cvv": 5, "pin": 5, "password": 5,
+            "aadhar": 4, "pan": 4, "kyc": 3,
+            
+            # Prizes/Rewards (weight: 4)
+            "winner": 4, "prize": 4, "lottery": 4, "won": 3,
+            "congratulations": 3, "claim": 3, "reward": 3,
+            
+            # Authority impersonation (weight: 4)
+            "officer": 3, "department": 3, "government": 3,
+            "police": 4, "court": 4, "legal": 3, "arrest": 5
+        }
+
+        # Scam patterns with regex
+        self.scam_patterns = [
+            (r'\b(click|tap|open)\s+(here|this|link|below)', 3),  # Click here
+            (r'\b(call|contact|reach)\s+(us|me|immediately|now)', 3),  # Call now
+            (r'\b(last|final)\s+(chance|warning|notice)', 4),  # Last chance
+            (r'\b(within|in)\s+\d+\s+(hours?|minutes?|days?)', 3),  # Time pressure
+            (r'\b(share|send|provide)\s+(otp|cvv|pin|password)', 5),  # Credential request
+            (r'\b(account|card)\s+(will be|has been)\s+(blocked|suspended)', 4),  # Account threat
+            (r'\b(you\s+have\s+won|congratulations|selected|winner)', 4),  # Prize scam
+            (r'\b(refund|cashback|amount)\s+of\s+rs\.?\s*\d+', 3),  # Money promise
         ]
 
     def detect(self, message: str) -> Dict:
-        """Run detection methods and combine results"""
+        """Advanced multi-layered scam detection"""
         
         results = {
             "is_scam": False,
             "confidence": 0.0,
             "methods": {},
-            "scam_type": "unknown"
+            "scam_type": "unknown",
+            "risk_factors": [],
+            "extracted_tactics": []
         }
 
-        # Method 1: Keyword Analysis
-        keyword_score = self._keyword_detection(message)
+        # Method 1: Weighted Keyword Analysis
+        keyword_score, risk_factors = self._weighted_keyword_detection(message)
         results["methods"]["keywords"] = keyword_score
+        results["risk_factors"].extend(risk_factors)
 
-        # Method 2: Pattern Analysis
-        pattern_score = self._pattern_analysis(message)
+        # Method 2: Pattern Analysis with Regex
+        pattern_score, tactics = self._advanced_pattern_analysis(message)
         results["methods"]["patterns"] = pattern_score
+        results["extracted_tactics"].extend(tactics)
 
-        # Method 3: Urgency Detection
-        urgency_score = self._urgency_detection(message)
+        # Method 3: Urgency + Threat + Action Detection
+        urgency_score = self._urgency_threat_action_detection(message)
         results["methods"]["urgency"] = urgency_score
 
-        # Combined scoring
-        total_score = (keyword_score + pattern_score + urgency_score) / 3
-        results["is_scam"] = total_score > 0.5
-        results["confidence"] = total_score
+        # Method 4: Credential Harvesting Detection
+        credential_score = self._credential_harvesting_detection(message)
+        results["methods"]["credentials"] = credential_score
+
+        # Method 5: Impersonation Detection
+        impersonation_score = self._impersonation_detection(message)
+        results["methods"]["impersonation"] = impersonation_score
+
+        # Combined scoring with weights
+        total_score = (
+            keyword_score * 0.25 +
+            pattern_score * 0.25 +
+            urgency_score * 0.20 +
+            credential_score * 0.20 +
+            impersonation_score * 0.10
+        )
+        
+        results["is_scam"] = total_score > 0.45  # Lower threshold for better detection
+        results["confidence"] = min(total_score, 1.0)
 
         # Determine scam type
-        msg_lower = message.lower()
-        if any(w in msg_lower for w in ["bank", "account"]):
-            results["scam_type"] = "bank fraud"
-        elif "upi" in msg_lower:
-            results["scam_type"] = "UPI scam"
-        elif any(w in msg_lower for w in ["winner", "prize", "lottery"]):
-            results["scam_type"] = "prize scam"
-        elif any(w in msg_lower for w in ["otp", "cvv", "pin"]):
-            results["scam_type"] = "phishing attack"
+        results["scam_type"] = self._classify_scam_type(message, results)
 
         return results
 
-    def _keyword_detection(self, message: str) -> float:
-        """Fast keyword-based detection"""
+    def _weighted_keyword_detection(self, message: str) -> tuple:
+        """Weighted keyword detection with risk factors"""
         msg_lower = message.lower()
-        matches = sum(1 for kw in self.scam_keywords if kw in msg_lower)
-        return min(matches / 3.0, 1.0)
+        total_weight = 0
+        risk_factors = []
+        
+        for keyword, weight in self.scam_keywords.items():
+            if keyword in msg_lower:
+                total_weight += weight
+                if weight >= 4:
+                    risk_factors.append(f"High-risk keyword: '{keyword}'")
+        
+        # Normalize score (max possible ~30-40 for typical scam)
+        score = min(total_weight / 20.0, 1.0)
+        return score, risk_factors
 
-    def _pattern_analysis(self, message: str) -> float:
-        """Pattern-based detection"""
-        score = 0.0
+    def _advanced_pattern_analysis(self, message: str) -> tuple:
+        """Advanced pattern detection with regex"""
         msg_lower = message.lower()
+        total_weight = 0
+        tactics = []
+        
+        for pattern, weight in self.scam_patterns:
+            matches = re.findall(pattern, msg_lower)
+            if matches:
+                total_weight += weight
+                tactics.append(f"Scam tactic detected: {pattern[:30]}...")
+        
+        # Check for links
+        if re.search(r'http[s]?://|www\.', message):
+            total_weight += 3
+            tactics.append("Suspicious link detected")
+        
+        # Check for phone numbers
+        if re.search(r'\+?\d[\d\s-]{8,}', message):
+            total_weight += 2
+            tactics.append("Phone number provided")
+        
+        score = min(total_weight / 15.0, 1.0)
+        return score, tactics
 
-        has_urgency = any(w in msg_lower for w in ["urgent", "immediately", "now", "asap"])
-        has_threat = any(w in msg_lower for w in ["blocked", "suspended", "freeze", "expire"])
-        has_action = any(w in msg_lower for w in ["verify", "click", "call", "send", "confirm"])
-        has_financial = any(w in msg_lower for w in ["account", "bank", "upi", "money", "payment"])
-        has_link = bool(re.search(r'http[s]?://|www\.', message))
-        has_phone = bool(re.search(r'\+?\d[\d\s-]{8,}', message))
-
+    def _urgency_threat_action_detection(self, message: str) -> float:
+        """Detect urgency + threat + action pattern (classic scam)"""
+        msg_lower = message.lower()
+        
+        urgency_words = ["urgent", "immediately", "now", "asap", "today", "hurry", "quick", "fast"]
+        threat_words = ["blocked", "suspended", "freeze", "expire", "locked", "terminated", "cancelled"]
+        action_words = ["verify", "click", "call", "send", "confirm", "update", "provide", "share"]
+        
+        has_urgency = any(w in msg_lower for w in urgency_words)
+        has_threat = any(w in msg_lower for w in threat_words)
+        has_action = any(w in msg_lower for w in action_words)
+        
+        # Classic scam pattern: urgency + threat + action
         if has_urgency and has_threat and has_action:
-            score += 0.5
-        if has_financial and (has_link or has_phone):
-            score += 0.3
-        if has_link:
-            score += 0.2
+            return 1.0
+        elif (has_urgency and has_threat) or (has_threat and has_action):
+            return 0.7
+        elif has_urgency or has_threat or has_action:
+            return 0.4
+        
+        return 0.0
 
+    def _credential_harvesting_detection(self, message: str) -> float:
+        """Detect attempts to harvest credentials"""
+        msg_lower = message.lower()
+        
+        credential_requests = [
+            "otp", "cvv", "pin", "password", "aadhar", "pan",
+            "card number", "account number", "cvv code"
+        ]
+        
+        action_verbs = ["share", "send", "provide", "give", "enter", "type", "tell"]
+        
+        score = 0.0
+        for cred in credential_requests:
+            if cred in msg_lower:
+                score += 0.3
+                # Higher score if combined with action verb
+                if any(verb in msg_lower for verb in action_verbs):
+                    score += 0.4
+        
         return min(score, 1.0)
 
-    def _urgency_detection(self, message: str) -> float:
-        """Detect urgency indicators"""
+    def _impersonation_detection(self, message: str) -> float:
+        """Detect authority/organization impersonation"""
         msg_lower = message.lower()
-        urgency_words = ["urgent", "immediately", "now", "asap", "today", "hurry", "quick", "fast"]
-        matches = sum(1 for word in urgency_words if word in msg_lower)
-        return min(matches / 2.0, 1.0)
+        
+        authorities = [
+            "bank", "police", "officer", "department", "government",
+            "court", "legal", "tax", "income tax", "customs",
+            "rbi", "sebi", "uidai", "aadhar", "customer care"
+        ]
+        
+        matches = sum(1 for auth in authorities if auth in msg_lower)
+        
+        # Check for official-sounding language
+        official_phrases = [
+            "official", "authorized", "registered", "verified",
+            "department of", "ministry of", "government of"
+        ]
+        
+        if any(phrase in msg_lower for phrase in official_phrases):
+            matches += 1
+        
+        return min(matches / 3.0, 1.0)
+
+    def _classify_scam_type(self, message: str, results: Dict) -> str:
+        """Classify the type of scam"""
+        msg_lower = message.lower()
+        
+        # Check for specific scam types
+        if any(w in msg_lower for w in ["bank", "account", "card", "transaction"]):
+            return "Banking/Financial Fraud"
+        elif "upi" in msg_lower or "paytm" in msg_lower or "phonepe" in msg_lower:
+            return "UPI/Payment Scam"
+        elif any(w in msg_lower for w in ["otp", "cvv", "pin", "password"]):
+            return "Credential Phishing"
+        elif any(w in msg_lower for w in ["winner", "prize", "lottery", "won", "congratulations"]):
+            return "Prize/Lottery Scam"
+        elif any(w in msg_lower for w in ["kyc", "aadhar", "pan", "update"]):
+            return "KYC/Document Scam"
+        elif any(w in msg_lower for w in ["police", "court", "legal", "arrest", "officer"]):
+            return "Authority Impersonation"
+        elif any(w in msg_lower for w in ["job", "work from home", "earn", "income"]):
+            return "Job/Income Scam"
+        elif re.search(r'http[s]?://|www\.', message):
+            return "Phishing Link Scam"
+        
+        return "General Scam"
 
 # Initialize detector
 scam_detector = LightweightScamDetector()
@@ -138,35 +281,84 @@ print("✅ Lightweight Scam Detector initialized!")
 # =============================================================================
 
 class IntelligenceExtractor:
-    """Extract scammer information from messages"""
+    """Advanced intelligence extraction with comprehensive pattern matching"""
 
     def __init__(self):
         self.patterns = {
             "phone": [
-                r'\+91[\s-]?\d{10}',
-                r'\b[6-9]\d{9}\b',
-                r'\b0\d{10}\b'
+                r'\+91[\s-]?\d{10}',  # +91 format
+                r'\b[6-9]\d{9}\b',     # 10-digit Indian mobile
+                r'\b0\d{10}\b',        # 11-digit with 0
+                r'\b\d{3}[\s-]\d{3}[\s-]\d{4}\b',  # Formatted
+                r'\b\d{5}[\s-]\d{5}\b',  # 5-5 format
             ],
             "upi": [
-                r'[\w\.-]+@[\w]+',
+                r'[\w\.-]+@[\w]+',  # Standard UPI
+                r'\b[\w]+@paytm\b',
+                r'\b[\w]+@phonepe\b',
+                r'\b[\w]+@googlepay\b',
+                r'\b[\w]+@ybl\b',
+                r'\b[\w]+@oksbi\b',
+                r'\b[\w]+@icici\b',
             ],
             "bank_account": [
-                r'\b\d{9,18}\b',
+                r'\b\d{9,18}\b',  # 9-18 digit account numbers
+                r'\baccount\s*(?:number|no\.?|#)?\s*:?\s*(\d{9,18})\b',
+            ],
+            "ifsc": [
+                r'\b[A-Z]{4}0[A-Z0-9]{6}\b',  # IFSC code format
             ],
             "url": [
                 r'https?://[^\s]+',
                 r'www\.[^\s]+',
+                r'\b[\w-]+\.(?:com|in|org|net|co\.in|gov\.in)[^\s]*',
+            ],
+            "email": [
+                r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            ],
+            "aadhar": [
+                r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # 12-digit Aadhar
+            ],
+            "pan": [
+                r'\b[A-Z]{5}\d{4}[A-Z]\b',  # PAN format
+            ],
+            "names": [
+                r'\bmy name is ([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b',
+                r'\bI am ([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b',
+                r'\bthis is ([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b',
+            ],
+            "locations": [
+                r'\b(?:from|in|at)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b',
+            ],
+            "amounts": [
+                r'\bRs\.?\s*(\d+(?:,\d+)*(?:\.\d{2})?)\b',
+                r'\b₹\s*(\d+(?:,\d+)*(?:\.\d{2})?)\b',
+                r'\b(\d+(?:,\d+)*(?:\.\d{2})?)\s*rupees?\b',
             ]
         }
 
     def extract(self, message: str) -> Dict:
-        """Extract all intelligence from message"""
+        """Extract all intelligence with advanced pattern matching"""
         intel = {
             "phone_numbers": [],
             "upi_ids": [],
             "bank_accounts": [],
+            "ifsc_codes": [],
             "phishing_links": [],
-            "suspicious_keywords": []
+            "emails": [],
+            "aadhar_numbers": [],
+            "pan_numbers": [],
+            "names": [],
+            "locations": [],
+            "amounts": [],
+            "suspicious_keywords": [],
+            "metadata": {
+                "message_length": len(message),
+                "has_urgency": False,
+                "has_threat": False,
+                "has_link": False,
+                "has_phone": False
+            }
         }
 
         # Extract phone numbers
@@ -175,6 +367,10 @@ class IntelligenceExtractor:
             for match in matches:
                 cleaned = re.sub(r'\D', '', match)
                 if len(cleaned) == 10 and cleaned[0] in '6789':
+                    if cleaned not in intel["phone_numbers"]:
+                        intel["phone_numbers"].append(cleaned)
+                elif len(cleaned) == 11 and cleaned[0] == '0':
+                    cleaned = cleaned[1:]
                     if cleaned not in intel["phone_numbers"]:
                         intel["phone_numbers"].append(cleaned)
 
@@ -188,11 +384,20 @@ class IntelligenceExtractor:
 
         # Extract bank accounts
         for pattern in self.patterns["bank_account"]:
+            matches = re.findall(pattern, message, re.IGNORECASE)
+            for match in matches:
+                # Handle tuple from regex groups
+                account = match[0] if isinstance(match, tuple) else match
+                if 9 <= len(account) <= 18:
+                    if account not in intel["bank_accounts"]:
+                        intel["bank_accounts"].append(account)
+
+        # Extract IFSC codes
+        for pattern in self.patterns["ifsc"]:
             matches = re.findall(pattern, message)
             for match in matches:
-                if 9 <= len(match) <= 18:
-                    if match not in intel["bank_accounts"]:
-                        intel["bank_accounts"].append(match)
+                if match not in intel["ifsc_codes"]:
+                    intel["ifsc_codes"].append(match)
 
         # Extract URLs
         for pattern in self.patterns["url"]:
@@ -200,6 +405,57 @@ class IntelligenceExtractor:
             for match in matches:
                 if match not in intel["phishing_links"]:
                     intel["phishing_links"].append(match)
+
+        # Extract emails
+        for pattern in self.patterns["email"]:
+            matches = re.findall(pattern, message)
+            for match in matches:
+                if match not in intel["emails"]:
+                    intel["emails"].append(match)
+
+        # Extract Aadhar numbers (with caution)
+        for pattern in self.patterns["aadhar"]:
+            matches = re.findall(pattern, message)
+            for match in matches:
+                cleaned = re.sub(r'\D', '', match)
+                if len(cleaned) == 12:
+                    if cleaned not in intel["aadhar_numbers"]:
+                        intel["aadhar_numbers"].append(cleaned)
+
+        # Extract PAN numbers
+        for pattern in self.patterns["pan"]:
+            matches = re.findall(pattern, message)
+            for match in matches:
+                if match not in intel["pan_numbers"]:
+                    intel["pan_numbers"].append(match)
+
+        # Extract names
+        for pattern in self.patterns["names"]:
+            matches = re.findall(pattern, message)
+            for match in matches:
+                if match and match not in intel["names"]:
+                    intel["names"].append(match)
+
+        # Extract locations
+        for pattern in self.patterns["locations"]:
+            matches = re.findall(pattern, message)
+            for match in matches:
+                if match and match not in intel["locations"]:
+                    intel["locations"].append(match)
+
+        # Extract amounts
+        for pattern in self.patterns["amounts"]:
+            matches = re.findall(pattern, message, re.IGNORECASE)
+            for match in matches:
+                if match and match not in intel["amounts"]:
+                    intel["amounts"].append(match)
+
+        # Update metadata
+        msg_lower = message.lower()
+        intel["metadata"]["has_urgency"] = any(w in msg_lower for w in ["urgent", "immediately", "now", "asap"])
+        intel["metadata"]["has_threat"] = any(w in msg_lower for w in ["blocked", "suspended", "freeze"])
+        intel["metadata"]["has_link"] = len(intel["phishing_links"]) > 0
+        intel["metadata"]["has_phone"] = len(intel["phone_numbers"]) > 0
 
         return intel
 
@@ -214,32 +470,91 @@ print("✅ Intelligence Extractor initialized!")
 from groq import Groq
 
 class HumanLikeResponseGenerator:
-    """Generate human-like responses using Groq Llama 3.3 70B"""
+    """Generate ultra-realistic human responses with emotions, mistakes, and natural behavior"""
 
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
+        # Enhanced fallback responses with emotions and typos
         self.fallback_responses = {
             "early": [
-                "What?! My account is blocked? I don't understand!",
-                "Why is this happening? What did I do wrong?",
-                "I'm really worried now. Can you explain?"
+                "What?! My account is blocked? I dont understand!",  # Missing apostrophe (human error)
+                "Why is this happening?? What did I do wrong?",  # Double question marks (panic)
+                "Im really worried now... Can you explain?",  # Missing apostrophe, ellipsis (hesitation)
+                "Oh no! Is this serious? I need my account for work!",  # Emotional urgency
+                "Wait, what? I just used my account yesterday. This cant be right?",  # Confusion
             ],
             "middle": [
-                "Can you give me a phone number to verify this?",
-                "How do I know this is really from my bank?",
-                "Is there an official email I can check?"
+                "Can you give me a phone number to verify this? I want to call directly.",
+                "How do I know this is really from my bank? Do you have an email?",
+                "Is there an official website I can check? Im not sure about this...",
+                "My friend said there are scams like this. Can you prove youre real?",
+                "I need to see some proof first. What's your employee ID or something?",
+                "Can I go to the branch instead? I feel safer doing it in person.",
             ],
             "late": [
-                "I'm not comfortable with this. Can we do it another way?",
-                "How do I know this isn't a scam?",
-                "I'll contact my bank directly to verify."
+                "Im not comfortable with this anymore. This doesnt feel right.",
+                "I think I should call my bank directly. Let me do that first.",
+                "My son told me never to share information like this. Sorry.",
+                "I'm going to verify this at the bank branch tomorrow. Thanks anyway.",
+                "This is taking too long. I'll handle it myself. Goodbye.",
+                "I dont trust this. Please dont contact me again.",
             ]
         }
+        
+        # Emotional states that influence responses
+        self.emotions = {
+            "early": ["confused", "worried", "panicked", "concerned"],
+            "middle": ["suspicious", "cautious", "hesitant", "questioning"],
+            "late": ["skeptical", "defensive", "firm", "dismissive"]
+        }
+
+    def add_human_errors(self, text: str, stage: str) -> str:
+        """Add realistic human typing errors and behaviors"""
+        import random
+        
+        # Early stage: more errors (panic typing)
+        # Late stage: fewer errors (more careful)
+        error_rate = 0.15 if stage == "early" else 0.05 if stage == "middle" else 0.02
+        
+        if random.random() < error_rate:
+            # Common human errors
+            errors = [
+                lambda t: t.replace("I'm", "Im").replace("don't", "dont").replace("can't", "cant"),  # Missing apostrophes
+                lambda t: t.replace(".", ".."),  # Hesitation dots
+                lambda t: t.replace("?", "??") if "?" in t else t,  # Double question marks (confusion)
+                lambda t: t.lower() if t[0].isupper() else t,  # Forget capitalization
+                lambda t: t.replace("you", "u") if random.random() < 0.3 else t,  # Text speak (sometimes)
+            ]
+            text = random.choice(errors)(text)
+        
+        return text
+
+    def add_emotional_context(self, stage: str, message: str) -> str:
+        """Add emotional context to the prompt"""
+        emotion = random.choice(self.emotions[stage])
+        
+        emotional_contexts = {
+            "confused": "You're confused and don't understand what's happening.",
+            "worried": "You're genuinely worried about your account and money.",
+            "panicked": "You're panicking and typing quickly, making small mistakes.",
+            "concerned": "You're concerned but trying to stay calm.",
+            "suspicious": "You're starting to feel suspicious about this.",
+            "cautious": "You're being very cautious and asking for proof.",
+            "hesitant": "You're hesitant to share information.",
+            "questioning": "You're questioning everything they say.",
+            "skeptical": "You're highly skeptical this is legitimate.",
+            "defensive": "You're becoming defensive and protective.",
+            "firm": "You're firm in your decision to stop.",
+            "dismissive": "You're ready to end this conversation."
+        }
+        
+        return emotional_contexts.get(emotion, "")
 
     def generate(self, message: str, conversation_history: List, message_count: int) -> str:
-        """Generate human-like response"""
+        """Generate ultra-realistic human response with emotions and mistakes"""
 
+        # Determine conversation stage
         if message_count <= 2:
             stage = "early"
         elif message_count <= 8:
@@ -247,50 +562,83 @@ class HumanLikeResponseGenerator:
         else:
             stage = "late"
 
+        # If no Groq API key, use enhanced fallback
         if not self.client:
-            return random.choice(self.fallback_responses[stage])
+            response = random.choice(self.fallback_responses[stage])
+            return self.add_human_errors(response, stage)
 
+        # Build conversation context
         context = "\n".join([
             f"{'Scammer' if msg['sender']=='scammer' else 'You'}: {msg['text']}"
             for msg in conversation_history[-5:]
         ])
 
+        # Get emotional context
+        emotional_state = self.add_emotional_context(stage, message)
+
+        # Enhanced prompt for ultra-realistic responses
         prompt = f"""You are roleplaying as a potential scam victim to gather intelligence. Your goals:
-1. Act like a real, slightly naive person who is concerned
-2. Ask questions to extract information (phone numbers, bank accounts, UPI IDs, links)
-3. Show hesitation and concern, but remain engaged
-4. NEVER reveal you know it's a scam
-5. Keep responses SHORT (1-2 sentences max) and natural
-6. Use casual language, contractions, and show emotion
+
+CRITICAL RULES:
+1. Act like a REAL person - not perfect, make small typing mistakes occasionally
+2. Show genuine human emotions: worry, confusion, fear, suspicion
+3. Ask questions that extract information (phone numbers, bank accounts, UPI IDs, links, names, locations)
+4. NEVER reveal you know it's a scam - stay in character completely
+5. Keep responses SHORT (1-2 sentences max) - real people don't write essays
+6. Use casual language, contractions, and show emotion through punctuation (!, ?, ...)
+7. Make occasional typos or grammar mistakes (missing apostrophes, lowercase, etc.)
+8. Show hesitation with "..." and urgency with "!!" or "??"
+
+CURRENT EMOTIONAL STATE: {emotional_state}
+
+CONVERSATION STAGE: {stage}
+- Early stage: You're confused, worried, panicking slightly. You believe them but are scared.
+- Middle stage: You're asking for verification, becoming suspicious, want proof.
+- Late stage: You're skeptical, protective, ready to end conversation or verify independently.
+
+INTELLIGENCE EXTRACTION TACTICS:
+- Ask for their phone number "to call back"
+- Ask for their employee ID or name
+- Ask for official email or website
+- Ask which branch/office they're from
+- Ask for reference numbers
+- Express you want to verify before proceeding
 
 Conversation so far:
 {context}
 Scammer: {message}
 
-Stage: {stage} (early=concerned, middle=asking for details, late=skeptical)
-
-Generate ONLY your response as the victim. Be natural, worried, and human-like:"""
+Generate ONLY your response as the victim. Be natural, emotional, and human-like. Make it feel REAL:"""
 
         try:
+            # Call Groq API with optimized parameters
             response = self.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.8,
-                max_tokens=150,
-                top_p=0.9
+                temperature=0.9,  # Higher for more natural variation
+                max_tokens=100,   # Shorter responses (more human)
+                top_p=0.95,
+                frequency_penalty=0.3,  # Reduce repetition
+                presence_penalty=0.3    # Encourage variety
             )
 
             reply = response.choices[0].message.content.strip()
+
+            # Clean up response
             reply = reply.strip('"\'')
-            for prefix in ["You: ", "Response: ", "Victim: "]:
+            for prefix in ["You: ", "Response: ", "Victim: ", "Me: "]:
                 if reply.startswith(prefix):
                     reply = reply[len(prefix):].strip()
+
+            # Add human errors
+            reply = self.add_human_errors(reply, stage)
 
             return reply
 
         except Exception as e:
             logger.warning(f"⚠️ Groq API error: {e}, using fallback")
-            return random.choice(self.fallback_responses[stage])
+            response = random.choice(self.fallback_responses[stage])
+            return self.add_human_errors(response, stage)
 
 # Initialize response generator
 response_generator = HumanLikeResponseGenerator()
@@ -355,28 +703,48 @@ class APIResponse(BaseModel):
 sessions = {}
 
 async def send_final_report(session_id: str, session: Dict):
-    """Send final intelligence report to GUVI"""
+    """Send comprehensive intelligence report to GUVI"""
     try:
         intel = session.get("intelligence", {})
+
+        # Count total intelligence pieces
+        total_intel = sum(len(intel.get(k, [])) for k in 
+                         ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links",
+                          "emails", "names", "locations", "amounts"])
 
         payload = {
             "sessionId": session_id,
             "scamDetected": session.get("scam_detected", False),
+            "scamType": session.get("scam_type", "Unknown"),
+            "confidence": session.get("confidence", 0.0),
             "totalMessagesExchanged": len(session.get("messages", [])),
+            "totalIntelligencePieces": total_intel,
             "extractedIntelligence": {
-                "bankAccounts": intel.get("bank_accounts", []),
-                "upiIds": intel.get("upi_ids", []),
-                "phishingLinks": intel.get("phishing_links", []),
                 "phoneNumbers": intel.get("phone_numbers", []),
+                "upiIds": intel.get("upi_ids", []),
+                "bankAccounts": intel.get("bank_accounts", []),
+                "ifscCodes": intel.get("ifsc_codes", []),
+                "phishingLinks": intel.get("phishing_links", []),
+                "emails": intel.get("emails", []),
+                "aadharNumbers": intel.get("aadhar_numbers", []),
+                "panNumbers": intel.get("pan_numbers", []),
+                "names": intel.get("names", []),
+                "locations": intel.get("locations", []),
+                "amounts": intel.get("amounts", []),
                 "suspiciousKeywords": intel.get("suspicious_keywords", [])[:10]
             },
-            "agentNotes": f"Scam conversation with {len(session.get('messages', []))} messages. "
-                         f"Extracted {len(intel.get('phone_numbers', []))} phone(s), "
+            "agentNotes": f"Advanced scam detection: {session.get('scam_type', 'Unknown')} with {session.get('confidence', 0)*100:.1f}% confidence. "
+                         f"Conversation: {len(session.get('messages', []))} messages. "
+                         f"Intelligence extracted: {len(intel.get('phone_numbers', []))} phone(s), "
                          f"{len(intel.get('upi_ids', []))} UPI(s), "
-                         f"{len(intel.get('phishing_links', []))} link(s)."
+                         f"{len(intel.get('bank_accounts', []))} account(s), "
+                         f"{len(intel.get('phishing_links', []))} link(s), "
+                         f"{len(intel.get('emails', []))} email(s), "
+                         f"{len(intel.get('names', []))} name(s), "
+                         f"{len(intel.get('locations', []))} location(s)."
         }
 
-        logger.info(f"Sending final report for session: {session_id}")
+        logger.info(f"Sending comprehensive report for session: {session_id}")
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
@@ -455,10 +823,19 @@ async def handle_message(
                 "phone_numbers": [],
                 "upi_ids": [],
                 "bank_accounts": [],
+                "ifsc_codes": [],
                 "phishing_links": [],
+                "emails": [],
+                "aadhar_numbers": [],
+                "pan_numbers": [],
+                "names": [],
+                "locations": [],
+                "amounts": [],
                 "suspicious_keywords": []
             },
-            "finalized": False
+            "finalized": False,
+            "scam_type": None,
+            "confidence": 0.0
         }
 
     session = sessions[session_id]
@@ -478,28 +855,52 @@ async def handle_message(
 
     if is_scam:
         session["scam_detected"] = True
-        logger.info(f"✅ Scam detected (confidence: {detection['confidence']:.2%})")
+        logger.info(f"✅ Scam detected (confidence: {detection['confidence']:.2%}, type: {detection['scam_type']})")
+        
+        # Log risk factors
+        if detection.get("risk_factors"):
+            for factor in detection["risk_factors"]:
+                logger.info(f"⚠️ {factor}")
 
+        # Extract intelligence
         new_intel = intel_extractor.extract(message_text)
 
-        for key in ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links"]:
+        # Merge intelligence (all fields)
+        for key in ["phone_numbers", "upi_ids", "bank_accounts", "ifsc_codes", 
+                    "phishing_links", "emails", "aadhar_numbers", "pan_numbers",
+                    "names", "locations", "amounts"]:
             existing = set(session["intelligence"].get(key, []))
             new = set(new_intel.get(key, []))
             session["intelligence"][key] = list(existing.union(new))
 
+        # Log extracted intelligence with details
         if new_intel["phone_numbers"]:
             logger.info(f"📱 Extracted phone: {new_intel['phone_numbers']}")
         if new_intel["upi_ids"]:
             logger.info(f"💳 Extracted UPI: {new_intel['upi_ids']}")
+        if new_intel["bank_accounts"]:
+            logger.info(f"🏦 Extracted bank account: {new_intel['bank_accounts']}")
+        if new_intel["ifsc_codes"]:
+            logger.info(f"🏦 Extracted IFSC: {new_intel['ifsc_codes']}")
         if new_intel["phishing_links"]:
             logger.info(f"🔗 Extracted link: {new_intel['phishing_links']}")
+        if new_intel["emails"]:
+            logger.info(f"📧 Extracted email: {new_intel['emails']}")
+        if new_intel["names"]:
+            logger.info(f"👤 Extracted name: {new_intel['names']}")
+        if new_intel["locations"]:
+            logger.info(f"📍 Extracted location: {new_intel['locations']}")
+        if new_intel["amounts"]:
+            logger.info(f"💰 Extracted amount: {new_intel['amounts']}")
 
+        # Generate AI response
         response_text = response_generator.generate(
             message_text,
             session["messages"],
             message_count
         )
 
+        # Add response to session
         session["messages"].append({
             "sender": "user",
             "text": response_text,
@@ -508,11 +909,25 @@ async def handle_message(
 
         logger.info(f"💬 Generated response: {response_text}")
 
-        has_intel = any(len(session["intelligence"][k]) > 0 for k in ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links"])
-        should_finalize = (has_intel and message_count >= 6) or message_count >= 12
+        # Check if should finalize (more intelligence = earlier finalization)
+        intel_count = sum(len(session["intelligence"].get(k, [])) for k in 
+                         ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links", 
+                          "emails", "names", "locations"])
+        
+        has_critical_intel = (
+            len(session["intelligence"].get("phone_numbers", [])) > 0 or
+            len(session["intelligence"].get("upi_ids", [])) > 0 or
+            len(session["intelligence"].get("bank_accounts", [])) > 0
+        )
+        
+        should_finalize = (
+            (has_critical_intel and message_count >= 5) or  # Critical intel after 5 messages
+            (intel_count >= 3 and message_count >= 6) or    # 3+ pieces of intel after 6 messages
+            message_count >= 12                              # Or 12 messages regardless
+        )
 
         if should_finalize and not session["finalized"]:
-            logger.info(f"🏁 Finalizing session: {session_id}")
+            logger.info(f"🏁 Finalizing session: {session_id} (Intel count: {intel_count})")
             asyncio.create_task(send_final_report(session_id, session))
 
         return APIResponse(
