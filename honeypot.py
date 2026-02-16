@@ -28,15 +28,48 @@ logger = logging.getLogger(__name__)
 
 # Configuration from .env
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')  # Default Groq model
+KIMI_API_KEY = os.getenv('KIMI_API_KEY')  # Supports Together.ai, OpenRouter, etc.
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')  # Optional: OpenRouter-specific key
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()  # 'groq', 'kimi', 'kimi-k2', 'kimi-k2.5', or 'openrouter'
+KIMI_MODEL = os.getenv('KIMI_MODEL', 'moonshotai/Kimi-K2.5')  # Default to K2.5
+KIMI_BASE_URL = os.getenv('KIMI_BASE_URL', 'https://api.together.xyz/v1')  # Default to Together.ai
 API_SECRET_KEY = os.getenv('API_SECRET_KEY', 'W7I4x8cXh1_nV_h_VX0OBkgpivH4i2hykJqa2OCRZ2M')
 GUVI_CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
-# Validate required keys
-if not GROQ_API_KEY:
-    logger.warning("⚠️ GROQ_API_KEY not set in .env file. Using fallback responses.")
+# Handle OpenRouter provider
+if LLM_PROVIDER == 'openrouter':
+    if OPENROUTER_API_KEY:
+        KIMI_API_KEY = OPENROUTER_API_KEY
+    KIMI_BASE_URL = 'https://openrouter.ai/api/v1'
+    KIMI_MODEL = os.getenv('KIMI_MODEL', 'moonshotai/kimi-k2.5')  # OpenRouter format
+    LLM_PROVIDER = 'kimi'  # Normalize to kimi
+
+# Normalize provider names
+if LLM_PROVIDER in ['kimi-k2', 'kimi-k2.5']:
+    # Set specific model based on provider
+    if LLM_PROVIDER == 'kimi-k2':
+        KIMI_MODEL = 'moonshotai/kimi-k2-instruct'
+    elif LLM_PROVIDER == 'kimi-k2.5':
+        KIMI_MODEL = 'moonshotai/Kimi-K2.5'
+    LLM_PROVIDER = 'kimi'  # Normalize to 'kimi'
+
+# Validate required keys based on provider
+if LLM_PROVIDER == 'kimi' and not KIMI_API_KEY:
+    logger.warning("⚠️ KIMI_API_KEY not set but LLM_PROVIDER is 'kimi'. Switching to Groq or fallback.")
+    LLM_PROVIDER = 'groq' if GROQ_API_KEY else 'fallback'
+elif LLM_PROVIDER == 'groq' and not GROQ_API_KEY:
+    logger.warning("⚠️ GROQ_API_KEY not set but LLM_PROVIDER is 'groq'. Using fallback responses.")
+    LLM_PROVIDER = 'fallback'
 
 print(f"🔑 API Secret Key: {API_SECRET_KEY}")
-print(f"🔑 Groq API: {'✅ Configured' if GROQ_API_KEY else '❌ Not configured'}")
+print(f"🔑 LLM Provider: {LLM_PROVIDER.upper()}")
+if LLM_PROVIDER == 'groq':
+    print(f"🔑 Groq API: {'✅ Configured' if GROQ_API_KEY else '❌ Not configured'}")
+elif LLM_PROVIDER == 'kimi':
+    print(f"🔑 Kimi API: {'✅ Configured' if KIMI_API_KEY else '❌ Not configured'}")
+    print(f"🔑 Kimi Model: {KIMI_MODEL}")
+    print(f"🔑 Base URL: {KIMI_BASE_URL}")
 print("⚡ Running in LIGHTWEIGHT mode (no heavy AI models)")
 
 # =============================================================================
@@ -133,7 +166,8 @@ class LightweightScamDetector:
             impersonation_score * 0.10
         )
         
-        results["is_scam"] = total_score > 0.45  # Lower threshold for better detection
+        # Lower threshold for better detection - catch more potential scams
+        results["is_scam"] = total_score > 0.35  # Lowered from 0.45 for better recall
         results["confidence"] = min(total_score, 1.0)
 
         # Determine scam type
@@ -464,7 +498,7 @@ intel_extractor = IntelligenceExtractor()
 print("✅ Intelligence Extractor initialized!")
 
 # =============================================================================
-# Human-like Response Generator (Groq Llama 3.3 70B)
+# Human-like Response Generator (Groq Llama 3.3 70B or Kimi K2.5)
 # =============================================================================
 
 from groq import Groq
@@ -473,32 +507,51 @@ class HumanLikeResponseGenerator:
     """Generate ultra-realistic human responses with emotions, mistakes, and natural behavior"""
 
     def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+        self.provider = LLM_PROVIDER
+        
+        # Initialize all client attributes first
+        self.groq_client = None
+        self.kimi_client = None
+        self.model = None
+        
+        # Initialize clients based on provider
+        if self.provider == 'groq' and GROQ_API_KEY:
+            self.groq_client = Groq(api_key=GROQ_API_KEY)
+            self.model = GROQ_MODEL  # Use configured Groq model (can be Llama or Kimi)
+        elif self.provider == 'kimi' and KIMI_API_KEY:
+            # Kimi uses OpenAI-compatible API
+            from openai import OpenAI
+            self.kimi_client = OpenAI(
+                api_key=KIMI_API_KEY,
+                base_url=KIMI_BASE_URL  # Supports Together.ai, OpenRouter, etc.
+            )
+            self.model = KIMI_MODEL  # Use configured model (K2 or K2.5)
 
         # Enhanced fallback responses with emotions and typos
         self.fallback_responses = {
             "early": [
-                "What?! My account is blocked? I dont understand!",  # Missing apostrophe (human error)
-                "Why is this happening?? What did I do wrong?",  # Double question marks (panic)
-                "Im really worried now... Can you explain?",  # Missing apostrophe, ellipsis (hesitation)
-                "Oh no! Is this serious? I need my account for work!",  # Emotional urgency
-                "Wait, what? I just used my account yesterday. This cant be right?",  # Confusion
+                "What?! My account is blocked? I dont understand! Can you give me your phone number so I can call back?",
+                "Why is this happening?? What did I do wrong? What's your employee ID?",
+                "Im really worried now... Can you explain? Which branch are you calling from?",
+                "Oh no! Is this serious? I need my account for work! Can you send me an email to verify?",
+                "Wait, what? I just used my account yesterday. What's your name and department?",
+                "This is scary... Can I have your supervisor's number? I want to verify this is real.",
             ],
             "middle": [
-                "Can you give me a phone number to verify this? I want to call directly.",
-                "How do I know this is really from my bank? Do you have an email?",
-                "Is there an official website I can check? Im not sure about this...",
-                "My friend said there are scams like this. Can you prove youre real?",
-                "I need to see some proof first. What's your employee ID or something?",
-                "Can I go to the branch instead? I feel safer doing it in person.",
+                "Can you give me a phone number to verify this? I want to call your office directly.",
+                "How do I know this is really from my bank? Do you have an official email I can check?",
+                "Is there an official website I can check? What's your employee badge number?",
+                "My friend said there are scams like this. Can you prove youre real? Send me something official.",
+                "I need to see some proof first. What's your full name and which office are you in?",
+                "Can I go to the branch instead? Which branch should I visit? Give me the address.",
             ],
             "late": [
-                "Im not comfortable with this anymore. This doesnt feel right.",
-                "I think I should call my bank directly. Let me do that first.",
-                "My son told me never to share information like this. Sorry.",
-                "I'm going to verify this at the bank branch tomorrow. Thanks anyway.",
-                "This is taking too long. I'll handle it myself. Goodbye.",
-                "I dont trust this. Please dont contact me again.",
+                "Im not comfortable with this anymore. Give me your manager's contact so I can verify.",
+                "I think I should call my bank directly. What's the official customer care number?",
+                "My son told me never to share information like this. Can you email me instead?",
+                "I'm going to verify this at the bank branch tomorrow. Which branch are you from again?",
+                "This is taking too long. Let me call the bank myself. What's your reference number?",
+                "I dont trust this. Give me your company registration number so I can check.",
             ]
         }
         
@@ -562,8 +615,8 @@ class HumanLikeResponseGenerator:
         else:
             stage = "late"
 
-        # If no Groq API key, use enhanced fallback
-        if not self.client:
+        # If no API client, use enhanced fallback
+        if not self.groq_client and not self.kimi_client:
             response = random.choice(self.fallback_responses[stage])
             return self.add_human_errors(response, stage)
 
@@ -597,6 +650,22 @@ CONVERSATION STAGE: {stage}
 - Late stage: You're skeptical, protective, ready to end conversation or verify independently.
 
 INTELLIGENCE EXTRACTION TACTICS:
+- Ask for their phone number "to call back" or "verify"
+- Ask for their employee ID, name, or badge number
+- Ask for official email or website to check
+- Ask which branch/office they're calling from
+- Ask for reference numbers or case IDs
+- Express you want to verify before proceeding
+- Ask them to send proof via email or SMS
+- Request their supervisor's contact
+- Ask about their company registration details
+
+CONVERSATION CONTEXT:
+{context}
+
+SCAMMER'S LATEST MESSAGE: {message}
+
+Now respond as the victim. Be natural, emotional, and extract information through your questions. Keep it SHORT (1-2 sentences). Show real human behavior:"""
 - Ask for their phone number "to call back"
 - Ask for their employee ID or name
 - Ask for official email or website
@@ -611,18 +680,31 @@ Scammer: {message}
 Generate ONLY your response as the victim. Be natural, emotional, and human-like. Make it feel REAL:"""
 
         try:
-            # Call Groq API with optimized parameters
-            response = self.client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.9,  # Higher for more natural variation
-                max_tokens=100,   # Shorter responses (more human)
-                top_p=0.95,
-                frequency_penalty=0.3,  # Reduce repetition
-                presence_penalty=0.3    # Encourage variety
-            )
-
-            reply = response.choices[0].message.content.strip()
+            # Call appropriate API
+            if self.provider == 'groq' and self.groq_client:
+                response = self.groq_client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.9,
+                    max_tokens=100,
+                    top_p=0.95,
+                    frequency_penalty=0.3,
+                    presence_penalty=0.3
+                )
+                reply = response.choices[0].message.content.strip()
+                
+            elif self.provider == 'kimi' and self.kimi_client:
+                response = self.kimi_client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.9,
+                    max_tokens=100,
+                    top_p=0.95
+                )
+                reply = response.choices[0].message.content.strip()
+            else:
+                # Fallback
+                reply = random.choice(self.fallback_responses[stage])
 
             # Clean up response
             reply = reply.strip('"\'')
@@ -636,15 +718,23 @@ Generate ONLY your response as the victim. Be natural, emotional, and human-like
             return reply
 
         except Exception as e:
-            logger.warning(f"⚠️ Groq API error: {e}, using fallback")
+            logger.warning(f"⚠️ {self.provider.upper()} API error: {e}, using fallback")
             response = random.choice(self.fallback_responses[stage])
             return self.add_human_errors(response, stage)
 
 # Initialize response generator
 response_generator = HumanLikeResponseGenerator()
 print("✅ Human-like Response Generator initialized!")
-if GROQ_API_KEY:
-    print("🚀 Using Groq Llama 3.3 70B")
+if LLM_PROVIDER == 'groq':
+    model_display = GROQ_MODEL
+    if 'kimi' in GROQ_MODEL.lower():
+        print(f"🚀 Using Groq with Kimi model: {GROQ_MODEL}")
+    else:
+        print(f"🚀 Using Groq: {GROQ_MODEL}")
+elif LLM_PROVIDER == 'kimi':
+    model_name = "Kimi K2.5" if "K2.5" in KIMI_MODEL else "Kimi K2"
+    context_size = "256K" if "K2.5" in KIMI_MODEL else "128K"
+    print(f"🚀 Using {model_name} ({context_size} context)")
 else:
     print("⚠️ Using fallback responses")
 
@@ -654,6 +744,8 @@ else:
 
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 import httpx
 import asyncio
@@ -702,10 +794,29 @@ class APIResponse(BaseModel):
 
 sessions = {}
 
+# Serve frontend - mount static files
+if os.path.exists("frontend"):
+    app.mount("/static", StaticFiles(directory="frontend"), name="static")
+    
+    @app.get("/ui")
+    async def serve_ui():
+        """Serve the frontend interface"""
+        return FileResponse("frontend/index.html")
+    
+    print("✅ Frontend UI available at: http://localhost:8000/ui")
+
 async def send_final_report(session_id: str, session: Dict):
     """Send comprehensive intelligence report to GUVI"""
     try:
         intel = session.get("intelligence", {})
+
+        # Calculate engagement metrics
+        start_time = session.get("start_time", datetime.utcnow())
+        last_time = session.get("last_message_time", datetime.utcnow())
+        engagement_duration = (last_time - start_time).total_seconds()
+        
+        # Count messages exchanged
+        total_messages = len(session.get("messages", []))
 
         # Count total intelligence pieces
         total_intel = sum(len(intel.get(k, [])) for k in 
@@ -716,8 +827,8 @@ async def send_final_report(session_id: str, session: Dict):
             "sessionId": session_id,
             "scamDetected": session.get("scam_detected", False),
             "scamType": session.get("scam_type", "Unknown"),
-            "confidence": session.get("confidence", 0.0),
-            "totalMessagesExchanged": len(session.get("messages", [])),
+            "confidence": round(session.get("confidence", 0.0), 4),
+            "totalMessagesExchanged": total_messages,
             "totalIntelligencePieces": total_intel,
             "extractedIntelligence": {
                 "phoneNumbers": intel.get("phone_numbers", []),
@@ -725,7 +836,7 @@ async def send_final_report(session_id: str, session: Dict):
                 "bankAccounts": intel.get("bank_accounts", []),
                 "ifscCodes": intel.get("ifsc_codes", []),
                 "phishingLinks": intel.get("phishing_links", []),
-                "emails": intel.get("emails", []),
+                "emailAddresses": intel.get("emails", []),  # Changed key to match expected format
                 "aadharNumbers": intel.get("aadhar_numbers", []),
                 "panNumbers": intel.get("pan_numbers", []),
                 "names": intel.get("names", []),
@@ -733,8 +844,14 @@ async def send_final_report(session_id: str, session: Dict):
                 "amounts": intel.get("amounts", []),
                 "suspiciousKeywords": intel.get("suspicious_keywords", [])[:10]
             },
+            "engagementMetrics": {
+                "duration": round(engagement_duration, 2),
+                "messagesExchanged": total_messages,
+                "averageResponseTime": round(engagement_duration / max(total_messages, 1), 2),
+                "intelligencePiecesExtracted": total_intel
+            },
             "agentNotes": f"Advanced scam detection: {session.get('scam_type', 'Unknown')} with {session.get('confidence', 0)*100:.1f}% confidence. "
-                         f"Conversation: {len(session.get('messages', []))} messages. "
+                         f"Conversation: {total_messages} messages over {engagement_duration:.1f} seconds. "
                          f"Intelligence extracted: {len(intel.get('phone_numbers', []))} phone(s), "
                          f"{len(intel.get('upi_ids', []))} UPI(s), "
                          f"{len(intel.get('bank_accounts', []))} account(s), "
@@ -745,6 +862,7 @@ async def send_final_report(session_id: str, session: Dict):
         }
 
         logger.info(f"Sending comprehensive report for session: {session_id}")
+        logger.info(f"Engagement: {engagement_duration:.1f}s, Messages: {total_messages}, Intel: {total_intel} pieces")
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
@@ -835,10 +953,15 @@ async def handle_message(
             },
             "finalized": False,
             "scam_type": None,
-            "confidence": 0.0
+            "confidence": 0.0,
+            "start_time": datetime.utcnow(),  # Track engagement start time
+            "last_message_time": datetime.utcnow()
         }
 
     session = sessions[session_id]
+
+    # Update last message time for engagement tracking
+    session["last_message_time"] = datetime.utcnow()
 
     session["messages"].append({
         "sender": message_sender,
@@ -855,6 +978,9 @@ async def handle_message(
 
     if is_scam:
         session["scam_detected"] = True
+        session["scam_type"] = detection["scam_type"]  # Store scam type
+        session["confidence"] = max(session.get("confidence", 0.0), detection["confidence"])  # Keep highest confidence
+        
         logger.info(f"✅ Scam detected (confidence: {detection['confidence']:.2%}, type: {detection['scam_type']})")
         
         # Log risk factors
@@ -909,7 +1035,7 @@ async def handle_message(
 
         logger.info(f"💬 Generated response: {response_text}")
 
-        # Check if should finalize (more intelligence = earlier finalization)
+        # Check if should finalize (optimize for engagement points)
         intel_count = sum(len(session["intelligence"].get(k, [])) for k in 
                          ["phone_numbers", "upi_ids", "bank_accounts", "phishing_links", 
                           "emails", "names", "locations"])
@@ -920,14 +1046,15 @@ async def handle_message(
             len(session["intelligence"].get("bank_accounts", [])) > 0
         )
         
+        # Optimize for engagement points: aim for 5+ messages
         should_finalize = (
-            (has_critical_intel and message_count >= 5) or  # Critical intel after 5 messages
+            (has_critical_intel and message_count >= 5) or  # Critical intel after 5 messages (engagement points)
             (intel_count >= 3 and message_count >= 6) or    # 3+ pieces of intel after 6 messages
-            message_count >= 12                              # Or 12 messages regardless
+            message_count >= 10                              # Or 10 messages regardless (max engagement)
         )
 
         if should_finalize and not session["finalized"]:
-            logger.info(f"🏁 Finalizing session: {session_id} (Intel count: {intel_count})")
+            logger.info(f"🏁 Finalizing session: {session_id} (Messages: {message_count}, Intel: {intel_count})")
             asyncio.create_task(send_final_report(session_id, session))
 
         return APIResponse(
