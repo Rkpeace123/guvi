@@ -665,7 +665,7 @@ CONVERSATION CONTEXT:
 
 SCAMMER'S LATEST MESSAGE: {message}
 
-Now respond as the victim. Be natural, emotional, and extract information through your questions. Keep it SHORT (1-2 sentences). Show real human behavior:"""
+Now respond as the victim. Be natural, emotional, and extract information through your questions. Keep it SHORT (1-2 sentences). Show real human behavior:
 - Ask for their phone number "to call back"
 - Ask for their employee ID or name
 - Ask for official email or website
