@@ -104,7 +104,7 @@ cp .env.example .env
 
 3. Run the Server
 ```bash
-python src/main.py
+python main.py
 ```
 
 4. Open the UI
@@ -116,9 +116,11 @@ http://localhost:8000/ui
 ```
 guvi/
 ├── README.md                 # Setup and usage instructions
-├── src/                      # Source code
-│   ├── main.py              # Main API implementation
-│   └── frontend/            # UI files
+├── main.py                   # Main API implementation
+├── frontend/                 # UI files
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
 ├── requirements.txt          # Python dependencies
 ├── .env.example             # Environment variables template
 └── render.yaml              # Deployment configuration
