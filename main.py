@@ -27,6 +27,9 @@ from groq import Groq
 # Enhanced intelligence extraction
 from enhanced_extractor import EnhancedIntelligenceExtractor
 
+# Enhanced response generation
+from enhanced_response import EnhancedResponseGenerator
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
@@ -174,6 +177,9 @@ scam_detector = AdvancedScamDetector()
 
 # Initialize enhanced intelligence extractor
 intelligence_extractor = EnhancedIntelligenceExtractor()
+
+# Initialize enhanced response generator
+response_generator = EnhancedResponseGenerator()
 
 # Intelligence extractor (DEPRECATED - using enhanced version now)
 def extract_intelligence(message: str) -> Dict:
@@ -479,12 +485,12 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
     if new_intel["emailAddresses"]:
         logger.info(f"   📧 Email: {new_intel['emailAddresses']}")
     
-    # Generate response
-    response_text = generate_intelligent_response(
+    # Generate response using ENHANCED generator
+    response_text = response_generator.generate(
         message_text,
         message_count,
-        session["messages"],
-        session["intelligence"]
+        session["intelligence"],
+        session["messages"]
     )
     
     session["messages"].append({
