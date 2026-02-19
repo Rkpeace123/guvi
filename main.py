@@ -124,12 +124,24 @@ sessions = {}
 class AdvancedScamDetector:
     def __init__(self):
         self.scam_keywords = {
-            "urgent": 3, "immediately": 3, "now": 2, "asap": 3,
-            "blocked": 4, "suspended": 4, "freeze": 4, "locked": 4,
-            "verify": 2, "confirm": 2, "update": 2, "click": 3,
-            "account": 2, "bank": 2, "upi": 3, "payment": 2,
-            "otp": 5, "cvv": 5, "pin": 5, "password": 5,
-            "winner": 4, "prize": 4, "lottery": 4, "won": 3,
+            # Urgency indicators
+            "urgent": 3, "immediately": 3, "now": 2, "asap": 3, "hurry": 3, "quick": 2,
+            # Threat indicators
+            "blocked": 4, "suspended": 4, "freeze": 4, "locked": 4, "expire": 3, "deactivate": 4,
+            # Action requests
+            "verify": 2, "confirm": 2, "update": 2, "click": 3, "call": 2, "send": 2,
+            # Financial terms
+            "account": 2, "bank": 2, "upi": 3, "payment": 2, "transaction": 2, "transfer": 3,
+            # Sensitive data
+            "otp": 5, "cvv": 5, "pin": 5, "password": 5, "kyc": 4, "aadhar": 4, "pan": 4,
+            # Rewards/prizes
+            "winner": 4, "prize": 4, "lottery": 4, "won": 3, "cashback": 3, "reward": 3, "refund": 3,
+            # Phishing indicators
+            "link": 2, "website": 2, "portal": 2, "app": 2, "download": 3,
+            # Authority impersonation
+            "officer": 3, "department": 2, "government": 3, "police": 4, "court": 4, "legal": 3,
+            # Payment apps
+            "paytm": 2, "phonepe": 2, "gpay": 2, "googlepay": 2,
         }
     
     def detect(self, message: str) -> Dict:
@@ -156,16 +168,28 @@ class AdvancedScamDetector:
         # Combined score
         total_score = (keyword_score * 0.5 + pattern_score * 0.5)
         
-        # Classify scam type
+        # Classify scam type (covers all major fraud categories)
         scam_type = "Unknown"
         if "bank" in msg_lower or "account" in msg_lower:
             scam_type = "Banking/Financial Fraud"
-        elif "upi" in msg_lower:
+        elif "upi" in msg_lower or "paytm" in msg_lower or "phonepe" in msg_lower or "gpay" in msg_lower:
             scam_type = "UPI/Payment Scam"
-        elif "otp" in msg_lower or "cvv" in msg_lower:
+        elif "otp" in msg_lower or "cvv" in msg_lower or "password" in msg_lower or "pin" in msg_lower:
             scam_type = "Credential Phishing"
-        elif "winner" in msg_lower or "prize" in msg_lower:
+        elif "winner" in msg_lower or "prize" in msg_lower or "lottery" in msg_lower or "congratulations" in msg_lower:
             scam_type = "Prize/Lottery Scam"
+        elif "http" in msg_lower or "www" in msg_lower or "click" in msg_lower or "link" in msg_lower:
+            scam_type = "Phishing Link Scam"
+        elif "cashback" in msg_lower or "refund" in msg_lower or "reward" in msg_lower:
+            scam_type = "Cashback/Refund Scam"
+        elif "kyc" in msg_lower or "update" in msg_lower or "verify" in msg_lower:
+            scam_type = "KYC/Verification Scam"
+        elif "tax" in msg_lower or "penalty" in msg_lower or "fine" in msg_lower:
+            scam_type = "Tax/Penalty Scam"
+        elif "job" in msg_lower or "work from home" in msg_lower or "earn" in msg_lower:
+            scam_type = "Job/Employment Scam"
+        elif "investment" in msg_lower or "trading" in msg_lower or "profit" in msg_lower:
+            scam_type = "Investment/Trading Scam"
         
         return {
             "is_scam": total_score > 0.35,
