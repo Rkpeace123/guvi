@@ -349,7 +349,9 @@ def build_final_output(session_id: str, session: Dict) -> Dict:
     # Build agent notes
     notes_parts = []
     if session["scam_detected"]:
-        notes_parts.append(f"Scam detected: {session.get('scam_type', 'Unknown')} with {metrics['totalMessagesExchanged']} exchanges.")
+        scam_type = session.get('scam_type', 'Unknown')
+        confidence = session.get('scam_confidence', 0.0)
+        notes_parts.append(f"Scam detected: {scam_type} with {confidence:.1%} confidence and {metrics['totalMessagesExchanged']} exchanges.")
         if intel["phoneNumbers"]:
             notes_parts.append(f"Extracted {len(intel['phoneNumbers'])} phone number(s).")
         if intel["upiIds"]:
@@ -367,11 +369,14 @@ def build_final_output(session_id: str, session: Dict) -> Dict:
         "status": "success",
         "sessionId": session_id,
         "scamDetected": session["scam_detected"],
+        "scamType": session.get('scam_type', 'Unknown'),
+        "confidenceLevel": round(session.get('scam_confidence', 0.0), 2),
         "totalMessagesExchanged": metrics["totalMessagesExchanged"],
         "extractedIntelligence": intel,
         "engagementMetrics": metrics,
         "agentNotes": " ".join(notes_parts)
     }
+
 
 # GUVI callback
 async def send_to_guvi(final_output: Dict):
@@ -447,7 +452,8 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
             },
             "finalized": False,
             "start_time": datetime.now(timezone.utc),
-            "scam_type": "Unknown"
+            "scam_type": "Unknown",
+            "scam_confidence": 0.0
         }
     
     session = sessions[session_id]
@@ -467,6 +473,7 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
     if detection["is_scam"]:
         session["scam_detected"] = True
         session["scam_type"] = detection["scam_type"]
+        session["scam_confidence"] = detection["confidence"]
         logger.info(f"✅ Scam: {detection['scam_type']} ({detection['confidence']:.2%})")
     
     # Extract intelligence using ENHANCED extractor
