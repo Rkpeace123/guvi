@@ -24,6 +24,9 @@ import httpx
 # AI/ML Libraries
 from groq import Groq
 
+# Enhanced intelligence extraction
+from enhanced_extractor import EnhancedIntelligenceExtractor
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
@@ -169,7 +172,10 @@ class AdvancedScamDetector:
 
 scam_detector = AdvancedScamDetector()
 
-# Intelligence extractor
+# Initialize enhanced intelligence extractor
+intelligence_extractor = EnhancedIntelligenceExtractor()
+
+# Intelligence extractor (DEPRECATED - using enhanced version now)
 def extract_intelligence(message: str) -> Dict:
     intel = {
         "phoneNumbers": [],
@@ -457,8 +463,9 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
         session["scam_type"] = detection["scam_type"]
         logger.info(f"✅ Scam: {detection['scam_type']} ({detection['confidence']:.2%})")
     
-    # Extract intelligence
-    new_intel = extract_intelligence(message_text)
+    # Extract intelligence using ENHANCED extractor
+    message_history = [m["text"] for m in session["messages"]]
+    new_intel = intelligence_extractor.extract(message_text, message_history)
     for key in new_intel:
         existing = set(session["intelligence"].get(key, []))
         new_items = set(new_intel[key])
