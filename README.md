@@ -90,18 +90,39 @@ This is not another keyword filter.
 This is an AI counter-offensive.
 
 🚀 Quick Start
+
 1. Install Dependencies
+```bash
 pip install -r requirements.txt
+```
 
 2. Configure Environment
+```bash
 cp .env.example .env
 # Add your GROQ_API_KEY
+```
 
 3. Run the Server
-python honeypot_ultimate.py
+```bash
+python src/main.py
+```
 
 4. Open the UI
+```
 http://localhost:8000/ui
+```
+
+📁 Project Structure
+```
+guvi/
+├── README.md                 # Setup and usage instructions
+├── src/                      # Source code
+│   ├── main.py              # Main API implementation
+│   └── frontend/            # UI files
+├── requirements.txt          # Python dependencies
+├── .env.example             # Environment variables template
+└── render.yaml              # Deployment configuration
+```
 
 📊 Final Output Format
 {
