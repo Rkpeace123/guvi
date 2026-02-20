@@ -521,7 +521,8 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
         message_text,
         message_count,
         session["intelligence"],
-        session["messages"]
+        session["messages"],
+        session.get("scam_type", "Unknown")
     )
     
     session["messages"].append({

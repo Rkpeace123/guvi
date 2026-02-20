@@ -20,7 +20,7 @@ class EnhancedResponseGenerator:
         self.quality_threshold = 0.7  # Minimum quality score
     
     def generate(self, message: str, message_count: int, intelligence: Dict,
-                 conversation_history: List[Dict]) -> str:
+                 conversation_history: List[Dict], scam_type: str = "Unknown") -> str:
         """Generate response with multiple fallback layers
         Tier 1: Groq Llama 3.3 70B
         Tier 2: Enhanced pattern-based
@@ -29,14 +29,14 @@ class EnhancedResponseGenerator:
         # Tier 1: Try Groq API (Primary - Best Quality)
         if self.groq_client:
             try:
-                response = self._generate_groq(message, message_count, conversation_history)
+                response = self._generate_groq(message, message_count, conversation_history, scam_type)
                 if response and self._assess_quality(response) >= self.quality_threshold:
                     return response
             except Exception as e:
                 print(f"⚠️ Groq API failed: {e}, falling back to Tier 2")
         
         # Tier 2: Enhanced pattern-based (High Quality Fallback)
-        response = self._generate_enhanced_pattern(message, message_count, intelligence)
+        response = self._generate_enhanced_pattern(message, message_count, intelligence, scam_type)
         if self._assess_quality(response) >= self.quality_threshold:
             return response
         
@@ -44,7 +44,7 @@ class EnhancedResponseGenerator:
         return self._generate_emergency_fallback(message_count)
     
     def _generate_groq(self, message: str, message_count: int, 
-                       conversation_history: List[Dict]) -> Optional[str]:
+                       conversation_history: List[Dict], scam_type: str = "Unknown") -> Optional[str]:
         """Generate using Groq Llama 3.3 70B"""
         
         # Build context from last 5 messages
@@ -59,6 +59,9 @@ class EnhancedResponseGenerator:
             strategy = "skeptical_probing"
         else:
             strategy = "highly_suspicious"
+        
+        # Scam-type specific context
+        scam_context = self._get_scam_context(scam_type)
         
         strategies = {
             "worried_victim": "You are extremely worried and confused. Show genuine fear and concern. Ask basic questions. Keep responses SHORT (1-2 sentences max).",
@@ -76,6 +79,9 @@ CRITICAL RULES:
 4. Ask questions that extract information (phone numbers, names, accounts)
 5. NEVER reveal you know it's a scam
 6. Use casual language, contractions (I'm, don't, can't)
+
+SCAM TYPE DETECTED: {scam_type}
+{scam_context}
 
 STRATEGY: {strategies[strategy]}
 
@@ -107,7 +113,7 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
             return None
     
     def _generate_enhanced_pattern(self, message: str, message_count: int, 
-                                   intelligence: Dict) -> str:
+                                   intelligence: Dict, scam_type: str = "Unknown") -> str:
         """Enhanced pattern-based responses with context awareness"""
         
         msg_lower = message.lower()
@@ -121,9 +127,35 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
         has_phone = bool(re.search(r'\d{10}', message))
         threatening = any(w in msg_lower for w in ["blocked", "suspend", "freeze", "expire", "last chance"])
         
+        # Scam-type specific responses
+        is_lottery = "lottery" in scam_type.lower() or "prize" in scam_type.lower()
+        is_cashback = "cashback" in scam_type.lower() or "refund" in scam_type.lower()
+        is_job = "job" in scam_type.lower() or "employment" in scam_type.lower()
+        
         # Stage 1: Early (1-2 messages)
         if message_count <= 2:
-            if threatening:
+            if is_lottery:
+                return random.choice([
+                    "Really?! I won something? What prize is it?",
+                    "Wow! I never win anything! How did I win?",
+                    "This is amazing! What do I need to do to claim it?",
+                    "I can't believe it! Is this for real? How much did I win?"
+                ])
+            elif is_cashback:
+                return random.choice([
+                    "Cashback? From which transaction? I don't remember.",
+                    "How much cashback? Which app is this from?",
+                    "Really? I'm getting money back? That's great!",
+                    "Refund for what? Can you tell me more details?"
+                ])
+            elif is_job:
+                return random.choice([
+                    "A job offer? What kind of work is it?",
+                    "Work from home? That sounds interesting! Tell me more.",
+                    "How much can I earn? What are the requirements?",
+                    "Is this a real job? What company is this?"
+                ])
+            elif threatening:
                 return random.choice([
                     "What?! My account is blocked? I'm so worried!",
                     "Oh no! Why is this happening? I don't understand!",
@@ -241,6 +273,21 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
             text = msg.get("text", "")[:100]  # Limit length
             context_lines.append(f"{sender}: {text}")
         return "\n".join(context_lines)
+    
+    def _get_scam_context(self, scam_type: str) -> str:
+        """Get context-specific guidance based on scam type"""
+        contexts = {
+            "Prize/Lottery Scam": "Act excited about winning! Ask what you won, how to claim it, if there are fees.",
+            "Cashback/Refund Scam": "Act pleased about getting money back. Ask which transaction, how much, which app.",
+            "Job/Employment Scam": "Act interested in the opportunity. Ask about salary, work details, company name.",
+            "Banking/Financial Fraud": "Act worried about your account. Ask for verification, employee ID, official number.",
+            "UPI/Payment Scam": "Act confused about the payment request. Ask why they need your UPI, what it's for.",
+            "Phishing Link Scam": "Act hesitant about clicking links. Ask if there's another way, if it's official.",
+            "KYC/Verification Scam": "Act confused why you need to verify. Ask what happens if you don't, who they are.",
+            "Tax/Penalty Scam": "Act scared about penalties. Ask for proof, reference number, official contact.",
+            "Investment/Trading Scam": "Act interested in making money. Ask about returns, risks, company registration."
+        }
+        return contexts.get(scam_type, "Act naturally based on the situation. Ask questions to extract information.")
     
     def _clean_response(self, response: str) -> str:
         """Clean up AI response"""
