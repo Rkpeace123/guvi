@@ -211,8 +211,8 @@ class EnhancedIntelligenceExtractor:
         matches2 = re.findall(pattern2, message, re.IGNORECASE)
         urls.update(['http://' + m for m in matches2])
         
-        # Pattern 3: domain.com/path (common in scams)
-        pattern3 = r'\b[a-zA-Z0-9-]+\.(com|net|org|in|co\.in|info|biz)/[^\s]*'
+        # Pattern 3: domain.com/path (common in scams) - must have at least 3 chars before TLD
+        pattern3 = r'\b[a-zA-Z0-9-]{3,}\.(com|net|org|in|co\.in|info|biz)/[^\s]*'
         matches3 = re.findall(pattern3, message, re.IGNORECASE)
         urls.update(['http://' + m for m in matches3])
         
@@ -228,10 +228,11 @@ class EnhancedIntelligenceExtractor:
         for url in urls:
             try:
                 parsed = urlparse(url)
-                if parsed.netloc or parsed.path:
+                # Must have a valid netloc (domain) and be longer than just "http://com"
+                if parsed.netloc and len(parsed.netloc) > 3:
                     validated_urls.append(url)
             except:
-                validated_urls.append(url)
+                pass  # Skip invalid URLs
         
         return validated_urls
     
