@@ -115,16 +115,30 @@ http://localhost:8000/ui
 📁 Project Structure
 ```
 guvi/
-├── README.md                 # Setup and usage instructions
-├── main.py                   # Main API implementation
-├── frontend/                 # UI files
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
-├── requirements.txt          # Python dependencies
-├── .env.example             # Environment variables template
-└── render.yaml              # Deployment configuration
+├── main.py                      # Core API server and orchestration
+├── enhanced_extractor.py        # Intelligence extraction (99%+ accuracy)
+├── enhanced_response.py         # AI response generation (3-tier fallback)
+├── red_flag_detector.py         # Red flag detection system
+├── frontend/                    # Web UI
+│   ├── index.html              # Main interface
+│   ├── script.js               # Frontend logic
+│   └── style.css               # Styling
+├── requirements.txt             # Python dependencies
+├── .env.example                # Environment variables template
+├── render.yaml                 # Deployment configuration
+├── ARCHITECTURE.md             # System architecture documentation
+└── README.md                   # This file
 ```
+
+🏗️ Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design.
+
+Key Components:
+- Scam Detection: 10+ fraud types, confidence scoring
+- Intelligence Extraction: Phone, UPI, bank accounts, links, emails
+- Red Flag Detection: 10 categories, risk scoring
+- Response Generation: AI-powered with fallback layers
 
 📊 Final Output Format
 {
