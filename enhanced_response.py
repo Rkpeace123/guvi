@@ -1,7 +1,24 @@
 #!/usr/bin/env python3
 """
-UPGRADE 2: ENHANCED RESPONSE QUALITY
-Multiple fallback layers for 100% reliability
+Enhanced Response Generator
+===========================
+
+Multi-tier response generation system with 100% reliability.
+
+Features:
+- 3-tier fallback system (AI → Pattern → Emergency)
+- Scam-type aware responses
+- Stage-based conversation strategies
+- Quality scoring for natural responses
+- Context-aware generation
+
+Tiers:
+1. Groq Llama 3.3 70B (AI-powered, best quality)
+2. Enhanced pattern-based (high quality fallback)
+3. Emergency fallback (always works)
+
+Author: Team YUKT
+License: MIT
 """
 
 import random

@@ -1,7 +1,31 @@
 #!/usr/bin/env python3
 """
-RED FLAG DETECTION SYSTEM
-Identifies suspicious patterns and behaviors in scam conversations
+Red Flag Detection System
+=========================
+
+Comprehensive red flag detection for scam conversations.
+
+Features:
+- 10 red flag categories (urgency, threats, credentials, money, etc.)
+- Severity levels: CRITICAL, HIGH, MEDIUM, LOW
+- Conversation pattern analysis
+- Risk scoring (0-1 scale)
+- Detects escalating pressure, persistent harvesting, inconsistent narratives
+
+Categories:
+- Urgency pressure (HIGH)
+- Threat/intimidation (HIGH)
+- Credential requests (CRITICAL)
+- Money requests (CRITICAL)
+- Suspicious links (HIGH)
+- Authority impersonation (HIGH)
+- Too-good-to-be-true offers (MEDIUM)
+- Information harvesting (MEDIUM)
+- No verification offered (HIGH)
+- Grammar/spelling errors (LOW)
+
+Author: Team YUKT
+License: MIT
 """
 
 from typing import Dict, List
@@ -65,60 +89,84 @@ class RedFlagDetector:
         }
     
     def detect_red_flags(self, message: str, conversation_history: List[Dict] = None) -> Dict:
-        """Detect all red flags in a message"""
+        """Detect all red flags in a message
         
-        msg_lower = message.lower()
-        detected_flags = []
-        severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-        
-        # Check each red flag category
-        for flag_name, flag_data in self.red_flags.items():
-            patterns = flag_data["patterns"]
+        Args:
+            message: The message text to analyze
+            conversation_history: Optional list of previous messages
             
-            # Check if any pattern matches
-            matches = [p for p in patterns if p in msg_lower]
+        Returns:
+            Dict containing detected flags, risk score, and risk level
+        """
+        
+        try:
+            msg_lower = message.lower()
+            detected_flags = []
+            severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
             
-            if matches:
-                detected_flags.append({
-                    "flag": flag_name,
-                    "severity": flag_data["severity"],
-                    "description": flag_data["description"],
-                    "matched_patterns": matches
-                })
-                severity_counts[flag_data["severity"]] += 1
+            # Check each red flag category
+            for flag_name, flag_data in self.red_flags.items():
+                patterns = flag_data["patterns"]
+                
+                # Check if any pattern matches
+                matches = [p for p in patterns if p in msg_lower]
+                
+                if matches:
+                    detected_flags.append({
+                        "flag": flag_name,
+                        "severity": flag_data["severity"],
+                        "description": flag_data["description"],
+                        "matched_patterns": matches
+                    })
+                    severity_counts[flag_data["severity"]] += 1
+            
+            # Calculate overall risk score
+            risk_score = (
+                severity_counts["CRITICAL"] * 10 +
+                severity_counts["HIGH"] * 5 +
+                severity_counts["MEDIUM"] * 2 +
+                severity_counts["LOW"] * 1
+            )
+            risk_score = min(risk_score / 30.0, 1.0)  # Normalize to 0-1
+            
+            # Determine risk level
+            if risk_score >= 0.7:
+                risk_level = "CRITICAL"
+            elif risk_score >= 0.5:
+                risk_level = "HIGH"
+            elif risk_score >= 0.3:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+            
+            # Analyze conversation patterns if history provided
+            conversation_flags = []
+            if conversation_history:
+                try:
+                    conversation_flags = self._analyze_conversation_patterns(conversation_history)
+                except Exception as e:
+                    print(f"Warning: Conversation pattern analysis failed: {e}")
+            
+            return {
+                "red_flags": detected_flags,
+                "conversation_flags": conversation_flags,
+                "severity_counts": severity_counts,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "total_flags": len(detected_flags) + len(conversation_flags)
+            }
         
-        # Calculate overall risk score
-        risk_score = (
-            severity_counts["CRITICAL"] * 10 +
-            severity_counts["HIGH"] * 5 +
-            severity_counts["MEDIUM"] * 2 +
-            severity_counts["LOW"] * 1
-        )
-        risk_score = min(risk_score / 30.0, 1.0)  # Normalize to 0-1
-        
-        # Determine risk level
-        if risk_score >= 0.7:
-            risk_level = "CRITICAL"
-        elif risk_score >= 0.5:
-            risk_level = "HIGH"
-        elif risk_score >= 0.3:
-            risk_level = "MEDIUM"
-        else:
-            risk_level = "LOW"
-        
-        # Analyze conversation patterns if history provided
-        conversation_flags = []
-        if conversation_history:
-            conversation_flags = self._analyze_conversation_patterns(conversation_history)
-        
-        return {
-            "red_flags": detected_flags,
-            "conversation_flags": conversation_flags,
-            "severity_counts": severity_counts,
-            "risk_score": risk_score,
-            "risk_level": risk_level,
-            "total_flags": len(detected_flags) + len(conversation_flags)
-        }
+        except Exception as e:
+            print(f"Error in red flag detection: {e}")
+            # Return safe default
+            return {
+                "red_flags": [],
+                "conversation_flags": [],
+                "severity_counts": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0},
+                "risk_score": 0.0,
+                "risk_level": "LOW",
+                "total_flags": 0
+            }
     
     def _analyze_conversation_patterns(self, history: List[Dict]) -> List[Dict]:
         """Analyze conversation patterns for red flags"""

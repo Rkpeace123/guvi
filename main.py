@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 """
-ULTIMATE AGENTIC HONEY-POT - COMPETITION-WINNING VERSION
-Fully compliant with hackathon evaluation requirements
-Includes: Final output submission, engagement metrics, email extraction, auto-finalization
+AURORA - Ultimate Agentic Honeypot System
+==========================================
+
+Main API server for scam detection, intelligence extraction, and engagement.
+
+This module orchestrates:
+- Scam detection with confidence scoring
+- Red flag identification
+- Intelligence extraction (phone, UPI, bank accounts, links, emails)
+- AI-powered response generation
+- Session management and auto-finalization
+
+Author: Team YUKT
+License: MIT
 """
 
 import os
