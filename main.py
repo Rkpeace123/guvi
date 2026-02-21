@@ -580,8 +580,17 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
         logger.info(f"   📱 Phone: {new_intel['phoneNumbers']}")
     if new_intel["upiIds"]:
         logger.info(f"   💳 UPI: {new_intel['upiIds']}")
+    if new_intel["bankAccounts"]:
+        logger.info(f"   🏦 Bank Account: {new_intel['bankAccounts']}")
+    if new_intel["phishingLinks"]:
+        logger.info(f"   🔗 Link: {new_intel['phishingLinks']}")
     if new_intel["emailAddresses"]:
         logger.info(f"   📧 Email: {new_intel['emailAddresses']}")
+    
+    # Log cumulative intelligence
+    total_intel = sum(len(v) for v in session["intelligence"].values())
+    if total_intel > 0:
+        logger.info(f"   📊 Total Intelligence: {total_intel} items extracted")
     
     # Generate response using ENHANCED generator
     response_text = response_generator.generate(

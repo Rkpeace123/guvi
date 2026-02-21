@@ -35,6 +35,7 @@ class EnhancedResponseGenerator:
         self.groq_client = Groq(api_key=os.getenv("GROQ_API_KEY")) if os.getenv("GROQ_API_KEY") else None
         self.response_cache = {}  # Cache for similar contexts
         self.quality_threshold = 0.7  # Minimum quality score
+        self.used_responses = {}  # Track used responses per session
     
     def generate(self, message: str, message_count: int, intelligence: Dict,
                  conversation_history: List[Dict], scam_type: str = "Unknown") -> str:
@@ -232,22 +233,54 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
                     "I need more information before I do anything. Who are you exactly?"
                 ])
         
-        # Stage 3: Late (6-10 messages)
+        # Stage 3: Late (6-10 messages) - More variety and escalation
         else:
             if asking_for_password or asking_for_otp:
-                return random.choice([
+                responses = [
                     "No way. Banks NEVER ask for passwords. I'm reporting this.",
                     "This is definitely a scam. I'm calling the police.",
                     "I know what you're doing. I'm not falling for this scam.",
-                    "Stop calling me. I'm reporting this number to cyber crime."
-                ])
+                    "Stop calling me. I'm reporting this number to cyber crime.",
+                    "You're a scammer. I'm blocking this number and reporting you.",
+                    "Nice try. Real banks don't ask for OTP. I'm done here.",
+                    "I've recorded this conversation. I'm sending it to the authorities.",
+                    "You think I'm stupid? I know this is fraud. Goodbye."
+                ]
+                return random.choice(responses)
             elif threatening:
-                return random.choice([
+                responses = [
                     "You can't scare me anymore. I'm calling my bank's official number.",
                     "I don't believe you. Real banks don't threaten customers like this.",
                     "I'm going to the bank branch in person. This feels like fraud.",
-                    "I'll check with the police. This sounds like a scam to me."
-                ])
+                    "I'll check with the police. This sounds like a scam to me.",
+                    "Your threats don't work on me. I'm reporting this to RBI.",
+                    "Real bank employees don't talk like this. I'm hanging up.",
+                    "I'm taking screenshots of this conversation for evidence.",
+                    "You're trying to scam me. I'm not scared of your fake threats."
+                ]
+                return random.choice(responses)
+            elif asking_for_money:
+                responses = [
+                    "Banks don't ask customers to send money. This is clearly a scam.",
+                    "You want ME to pay YOU? That's not how banks work. Goodbye.",
+                    "I'm not sending a single rupee. This is fraud.",
+                    "Nice try, but I'm not transferring any money to you.",
+                    "You're asking for money? That proves this is a scam.",
+                    "Real banks don't charge fees like this. I'm reporting you."
+                ]
+                return random.choice(responses)
+            else:
+                responses = [
+                    "I want to verify this at my bank branch. I'm going there now.",
+                    "I'm going to call my bank's official customer service to confirm.",
+                    "This doesn't add up. I'm reporting this conversation.",
+                    "I've been keeping a record of this. Something's not right here.",
+                    "Let me speak to your manager. Give me their direct number.",
+                    "I'll verify this myself through official channels. Goodbye.",
+                    "I'm done with this conversation. I'll handle it at the bank.",
+                    "This whole thing seems suspicious. I'm ending this call now."
+                ]
+                return random.choice(responses)
             else:
                 return random.choice([
                     "I want to verify this at my bank branch. I'm going there now.",
