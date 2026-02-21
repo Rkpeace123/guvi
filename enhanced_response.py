@@ -281,15 +281,6 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
                     "This whole thing seems suspicious. I'm ending this call now."
                 ]
                 return random.choice(responses)
-            else:
-                return random.choice([
-                    "I want to verify this at my bank branch. I'm going there now.",
-                    "I'm going to call my bank's official customer service to confirm.",
-                    "This doesn't add up. I'm reporting this conversation.",
-                    "I've been keeping a record of this. Something's not right here.",
-                    "Let me speak to your manager. Give me their direct number.",
-                    "I'll verify this myself through official channels. Goodbye."
-                ])
     
     def _generate_emergency_fallback(self, message_count: int) -> str:
         """Emergency fallback - always returns something reasonable"""
