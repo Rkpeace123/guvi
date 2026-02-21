@@ -30,6 +30,9 @@ from enhanced_extractor import EnhancedIntelligenceExtractor
 # Enhanced response generation
 from enhanced_response import EnhancedResponseGenerator
 
+# Red flag detection
+from red_flag_detector import RedFlagDetector
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
@@ -125,23 +128,25 @@ class AdvancedScamDetector:
     def __init__(self):
         self.scam_keywords = {
             # Urgency indicators
-            "urgent": 3, "immediately": 3, "now": 2, "asap": 3, "hurry": 3, "quick": 2,
+            "urgent": 3, "immediately": 3, "now": 2, "asap": 3, "hurry": 3, "quick": 2, "today": 1,
             # Threat indicators
-            "blocked": 4, "suspended": 4, "freeze": 4, "locked": 4, "expire": 3, "deactivate": 4,
+            "blocked": 4, "suspended": 4, "freeze": 4, "locked": 4, "expire": 3, "deactivate": 4, "pending": 2,
             # Action requests
-            "verify": 2, "confirm": 2, "update": 2, "click": 3, "call": 2, "send": 2,
+            "verify": 2, "confirm": 2, "update": 2, "click": 3, "call": 2, "send": 2, "provide": 2, "register": 2,
             # Financial terms
-            "account": 2, "bank": 2, "upi": 3, "payment": 2, "transaction": 2, "transfer": 3,
+            "account": 2, "bank": 2, "upi": 3, "payment": 2, "transaction": 2, "transfer": 3, "rupees": 2, "rs": 1,
             # Sensitive data
             "otp": 5, "cvv": 5, "pin": 5, "password": 5, "kyc": 4, "aadhar": 4, "pan": 4,
             # Rewards/prizes
-            "winner": 4, "prize": 4, "lottery": 4, "won": 3, "cashback": 3, "reward": 3, "refund": 3,
+            "winner": 4, "prize": 4, "lottery": 4, "won": 3, "cashback": 3, "reward": 3, "refund": 3, "earn": 2,
             # Phishing indicators
-            "link": 2, "website": 2, "portal": 2, "app": 2, "download": 3,
+            "link": 2, "website": 2, "portal": 2, "app": 2, "download": 3, "claim": 2,
             # Authority impersonation
-            "officer": 3, "department": 2, "government": 3, "police": 4, "court": 4, "legal": 3,
+            "officer": 3, "department": 2, "government": 3, "police": 4, "court": 4, "legal": 3, "tax": 3,
             # Payment apps
             "paytm": 2, "phonepe": 2, "gpay": 2, "googlepay": 2,
+            # Job scam indicators
+            "work from home": 4, "opportunity": 2, "registration fee": 4, "investment": 2,
         }
     
     def detect(self, message: str) -> Dict:
@@ -152,18 +157,21 @@ class AdvancedScamDetector:
         keyword_score = min(keyword_score / 15.0, 1.0)
         
         # Pattern detection
-        has_urgency = any(w in msg_lower for w in ["urgent", "immediately", "now", "asap"])
-        has_threat = any(w in msg_lower for w in ["blocked", "suspended", "freeze"])
-        has_action = any(w in msg_lower for w in ["verify", "click", "call", "send"])
-        has_financial = any(w in msg_lower for w in ["account", "bank", "upi", "otp"])
+        has_urgency = any(w in msg_lower for w in ["urgent", "immediately", "now", "asap", "today", "hurry"])
+        has_threat = any(w in msg_lower for w in ["blocked", "suspended", "freeze", "expire", "pending"])
+        has_action = any(w in msg_lower for w in ["verify", "click", "call", "send", "provide", "register"])
+        has_financial = any(w in msg_lower for w in ["account", "bank", "upi", "otp", "payment", "rupees", "rs"])
+        has_reward = any(w in msg_lower for w in ["won", "prize", "cashback", "refund", "earn", "reward"])
         
         pattern_score = 0.0
         if has_urgency and has_threat and has_action:
             pattern_score = 1.0
         elif (has_urgency and has_threat) or (has_threat and has_action):
             pattern_score = 0.7
-        elif has_urgency or has_threat:
-            pattern_score = 0.4
+        elif (has_action and has_financial) or (has_reward and has_action):
+            pattern_score = 0.5
+        elif has_urgency or has_threat or has_reward:
+            pattern_score = 0.3
         
         # Combined score
         total_score = (keyword_score * 0.5 + pattern_score * 0.5)
@@ -192,7 +200,7 @@ class AdvancedScamDetector:
             scam_type = "Investment/Trading Scam"
         
         return {
-            "is_scam": total_score > 0.35,
+            "is_scam": total_score > 0.25,  # Lowered from 0.35 to catch more scams
             "confidence": total_score,
             "scam_type": scam_type
         }
@@ -204,6 +212,9 @@ intelligence_extractor = EnhancedIntelligenceExtractor()
 
 # Initialize enhanced response generator
 response_generator = EnhancedResponseGenerator()
+
+# Initialize red flag detector
+red_flag_detector = RedFlagDetector()
 
 # Intelligence extractor (DEPRECATED - using enhanced version now)
 def extract_intelligence(message: str) -> Dict:
@@ -369,6 +380,7 @@ def calculate_engagement_metrics(session: Dict) -> Dict:
 def build_final_output(session_id: str, session: Dict) -> Dict:
     intel = session["intelligence"]
     metrics = calculate_engagement_metrics(session)
+    red_flags = session.get("red_flags", [])
     
     # Build agent notes
     notes_parts = []
@@ -376,6 +388,18 @@ def build_final_output(session_id: str, session: Dict) -> Dict:
         scam_type = session.get('scam_type', 'Unknown')
         confidence = session.get('scam_confidence', 0.0)
         notes_parts.append(f"Scam detected: {scam_type} with {confidence:.1%} confidence and {metrics['totalMessagesExchanged']} exchanges.")
+        
+        # Add red flag summary
+        if red_flags:
+            unique_flags = list({f['flag']: f for f in red_flags}.values())
+            critical_flags = [f for f in unique_flags if f['severity'] == 'CRITICAL']
+            high_flags = [f for f in unique_flags if f['severity'] == 'HIGH']
+            
+            if critical_flags:
+                notes_parts.append(f"CRITICAL red flags: {', '.join([f['flag'] for f in critical_flags])}.")
+            if high_flags:
+                notes_parts.append(f"HIGH risk flags: {', '.join([f['flag'] for f in high_flags])}.")
+        
         if intel["phoneNumbers"]:
             notes_parts.append(f"Extracted {len(intel['phoneNumbers'])} phone number(s).")
         if intel["upiIds"]:
@@ -389,12 +413,24 @@ def build_final_output(session_id: str, session: Dict) -> Dict:
     else:
         notes_parts.append("No scam pattern detected.")
     
+    # Format red flags for output
+    formatted_red_flags = []
+    if red_flags:
+        unique_flags = list({f['flag']: f for f in red_flags}.values())
+        for flag in unique_flags:
+            formatted_red_flags.append({
+                "flag": flag['flag'],
+                "severity": flag['severity'],
+                "description": flag['description']
+            })
+    
     return {
         "status": "success",
         "sessionId": session_id,
         "scamDetected": session["scam_detected"],
         "scamType": session.get('scam_type', 'Unknown'),
         "confidenceLevel": round(session.get('scam_confidence', 0.0), 2),
+        "redFlags": formatted_red_flags,
         "totalMessagesExchanged": metrics["totalMessagesExchanged"],
         "extractedIntelligence": intel,
         "engagementMetrics": metrics,
@@ -474,6 +510,7 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
                 "phishingLinks": [],
                 "emailAddresses": []
             },
+            "red_flags": [],
             "finalized": False,
             "start_time": datetime.now(timezone.utc),
             "scam_type": "Unknown",
@@ -494,11 +531,30 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
     
     # Detect scam
     detection = scam_detector.detect(message_text)
-    if detection["is_scam"]:
+    
+    # Track cumulative scam signals
+    if "scam_signals" not in session:
+        session["scam_signals"] = 0
+    
+    if detection["confidence"] > 0.15:  # Even weak signals count
+        session["scam_signals"] += 1
+    
+    # Flag as scam if: direct detection OR multiple weak signals
+    if detection["is_scam"] or session["scam_signals"] >= 3:
         session["scam_detected"] = True
         session["scam_type"] = detection["scam_type"]
         session["scam_confidence"] = detection["confidence"]
         logger.info(f"✅ Scam: {detection['scam_type']} ({detection['confidence']:.2%})")
+    
+    # Detect red flags
+    red_flag_result = red_flag_detector.detect_red_flags(message_text, session["messages"])
+    if red_flag_result["red_flags"]:
+        session["red_flags"].extend(red_flag_result["red_flags"])
+        logger.info(f"🚩 Red Flags: {red_flag_result['total_flags']} detected | Risk: {red_flag_result['risk_level']}")
+        for flag in red_flag_result["red_flags"][:3]:  # Log top 3
+            logger.info(f"   - {flag['flag']}: {flag['description']}")
+        session["scam_confidence"] = max(detection["confidence"], session.get("scam_confidence", 0))
+        logger.info(f"✅ Scam: {detection['scam_type']} ({session['scam_confidence']:.2%})")
     
     # Extract intelligence using ENHANCED extractor
     message_history = [m["text"] for m in session["messages"]]
