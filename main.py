@@ -39,7 +39,7 @@ from groq import Groq
 from enhanced_extractor import EnhancedIntelligenceExtractor
 
 # Enhanced response generation
-from enhanced_response import EnhancedResponseGenerator
+from enhanced_response import UltimateHumanLikeGenerator
 
 # Red flag detection
 from red_flag_detector import RedFlagDetector
@@ -222,7 +222,7 @@ scam_detector = AdvancedScamDetector()
 intelligence_extractor = EnhancedIntelligenceExtractor()
 
 # Initialize enhanced response generator
-response_generator = EnhancedResponseGenerator()
+response_generator = UltimateHumanLikeGenerator()
 
 # Initialize red flag detector
 red_flag_detector = RedFlagDetector()
@@ -594,6 +594,7 @@ async def handle_message(request: Request, x_api_key: Optional[str] = Header(Non
     
     # Generate response using ENHANCED generator
     response_text = response_generator.generate(
+        session_id,
         message_text,
         message_count,
         session["intelligence"],
