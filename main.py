@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 # Get environment variables
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")  # Updated to GPT OSS 120B for better quality
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 KIMI_API_KEY = os.getenv("KIMI_API_KEY")
 KIMI_MODEL = os.getenv("KIMI_MODEL", "deepseek/deepseek-r1-0528:free")

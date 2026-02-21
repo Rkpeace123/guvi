@@ -113,7 +113,7 @@ Generate ONLY your response as the victim (1-2 sentences max):"""
         
         try:
             response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",  # Using GPT OSS 120B for better quality
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.85,  # Slightly higher for more natural variation
                 max_tokens=100,    # Force brevity
